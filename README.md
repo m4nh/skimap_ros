@@ -1,4 +1,4 @@
-# skimap_ros INDIGO
+# skimap_ros for INDIGO
 This package contains the **SkiMap Mapping Framework** described here:
 
 

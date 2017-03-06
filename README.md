@@ -1,4 +1,4 @@
-# skimap_ros
+# skimap_ros INDIGO
 This package contains the **SkiMap Mapping Framework** described here:
 
 
@@ -9,7 +9,9 @@ The framework si wrapped in a ROS package to maximize portability but, since it 
 can be easily used elsewhere. This package contains also an implementation of **SlamDunk** algorithm described
 in the last section used to track camera 6-DOF pose.
 
-This package is equipped with a sample BAG file: link. This is bag was collected by means of a mobile robot with an head-mounting
+This package is equipped with a sample BAG file: 
+[tiago_lar.bag](https://mega.nz/#!QJA2mS6Z!bv67y8nTiQGWT6f5tL05SegwUYxaEAvUuwpLcLc6bSc)
+. This is bag was collected by means of a mobile robot with an head-mounting
 RGB-D camera. So it provides not only RGB-D frames but also a whole TF tree, including Odometry informations. 
 For this reason this bag can be used as source for **SkiMap** mapping using Odometry to track Camera pose or as source 
 for **SlamDunk+SkiMap** duet where Camera is tracked by Slam System.

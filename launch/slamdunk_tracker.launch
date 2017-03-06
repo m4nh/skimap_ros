@@ -1,0 +1,55 @@
+<launch>
+
+    <arg name="camera" default="xtion" />
+
+    <node name="slamdunk_tracker" output="screen" pkg="skimap_ros" type="slamdunk_tracker">
+        
+        <!-- Generic Parameters -->
+        <param name="hz" value="10"/>
+        <param name="viz" value="true"/>
+        <param name="tracker_start_time" value="0.5"/>
+        
+         <!-- Topics Parameters -->
+        <param name="camera_rgb_topic" value="/$(arg camera)/rgb/image_raw"/>
+        <param name="camera_depth_topic" value="/$(arg camera)/depth/image_raw"/>
+        
+        <!-- RGB-D Parameters -->
+        <param name="fx" value="540.175979"/>
+        <param name="fy" value="530.740137"/>
+        <param name="cx" value="325.399891"/>
+        <param name="cy" value="239.056878"/>
+        <param name="rows" value="480"/>
+        <param name="cols" value="640"/>
+        <param name="depth_scale_factor" value="0.0002"/>
+
+        <!-- SlamDunk Parameters -->
+        <param name="cores" value="4"/>
+        <param name="rings" value="6"/>
+        <param name="kf_overlapping" value="0.9"/>
+        <param name="loop_inference" value="false"/>
+        <param name="doicp" value="false"/>
+        <param name="icp_distance" value="0.2"/>
+        <param name="icp_normal" value="30.0"/>
+        <param name="verbose" value="false"/>
+        <param name="features" value="surfext"/>
+        <param name="winl" value="6.0"/>
+        <param name="feat_redux" value="false"/>
+        
+        <!-- Deintegration parameters -->
+        
+        <!-- Mapping parameters -->
+        <param name="base_frame_name" value="slam_map"/>
+        <param name="camera_frame_name" value="camera"/>
+        <param name="mapping" value="true"/>
+        <param name="map_resolution" value="0.05"/>
+        <param name="camera_distance_max" value="3"/>
+        <param name="camera_distance_min" value="0.45"/>
+        <param name="max_integration_step" value="1"/>
+        <param name="max_deintegration_step" value="5"/>
+
+
+    </node>
+
+    <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find skimap_ros)/rviz/slamdunk_tracker.rviz" />
+
+</launch>

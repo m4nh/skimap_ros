@@ -52,6 +52,13 @@ them to build the map, so the accuracy of the reconstruction depends on the accu
 
 ## SlamDunk and SkiMap: *slamdunk_tracker.launch*
 
+*Important*: to activate this feature enable build option:
+
+```
+option(BUILD_SLAMDUNK "Build Slamdunk Library" OFF)
+```
+
+
 In this node is implemented a Wrapper of the popular **SlamDunk** localization and mapping algorithm, described here:
 
 > FIORAIO, Nicola; DI STEFANO, Luigi. **SlamDunk: affordable real-time RGB-D SLAM**. In: *Workshop at the European Conference on Computer Vision. Springer International Publishing*, 2014. p. 401-414. [**PDF**](http://ai2-s2-pdfs.s3.amazonaws.com/7e9e/191c127144b61d5d5cabac37bbbc27fe7697.pdf)

@@ -52,7 +52,7 @@ them to build the map, so the accuracy of the reconstruction depends on the accu
 
 ## SlamDunk and SkiMap: *slamdunk_tracker.launch*
 
-*Important*: to activate this feature enable build option:
+*Important*: in order to activate this feature enable the following build option:
 
 ```
 option(BUILD_SLAMDUNK "Build Slamdunk Library" OFF)

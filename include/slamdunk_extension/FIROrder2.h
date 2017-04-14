@@ -1,14 +1,9 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 /* 
- * File:   FIROrder2.h
- * Author: daniele
+ * Copyright (C) 2017 daniele de gregorio, University of Bologna - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the GNU GPLv3 license.
  *
- * Created on 29 luglio 2016, 14.05
+ * please write to: d.degregorio@unibo.it
  */
 
 #include <utility>
@@ -23,21 +18,22 @@
 #ifndef FIRORDER2_H
 #define FIRORDER2_H
 
-class FIROrder2 {
-public:
+class FIROrder2
+{
+  public:
     FIROrder2(int data_size, double cutoff, double quality = 0.5);
     virtual ~FIROrder2();
     void updateParameters(double cutoff);
     void setSampleTime(double sample_time);
 
     void setInput(int index, double X);
-    void setInputs(double* Xs);
-    void setInput(Eigen::Isometry3d& iso);
-    void setInitialData(double* Xs);
-    void setInitialData(Eigen::Isometry3d& iso);
-    
-    void getOutput(Eigen::Isometry3d& iso);
-    
+    void setInputs(double *Xs);
+    void setInput(Eigen::Isometry3d &iso);
+    void setInitialData(double *Xs);
+    void setInitialData(Eigen::Isometry3d &iso);
+
+    void getOutput(Eigen::Isometry3d &iso);
+
     double Fc;
     double Fs;
     double Q;
@@ -50,13 +46,12 @@ public:
     double A2;
 
     std::vector<double> output;
-    std::vector<std::vector<double> > data;
+    std::vector<std::vector<double>> data;
     bool ready;
-private:
-    void conversion(Eigen::Isometry3d& iso, double*& data, bool reverse = false);
+
+  private:
+    void conversion(Eigen::Isometry3d &iso, double *&data, bool reverse = false);
     int data_size;
-
-
 };
 
 #endif /* FIRORDER2_H */

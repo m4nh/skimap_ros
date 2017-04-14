@@ -1,14 +1,9 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
 /* 
- * File:   Utility.h
- * Author: Duo Gao
+ * Copyright (C) 2017 daniele de gregorio, University of Bologna - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the GNU GPLv3 license.
  *
- * Created on 13 luglio 2016, 15.35
+ * please write to: d.degregorio@unibo.it
  */
 
 #ifndef UTILITY_H
@@ -70,24 +65,21 @@
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
 
-
-
-class Utility {
-public:
+class Utility
+{
+  public:
     Utility();
-    Utility(const Utility& orig);
+    Utility(const Utility &orig);
     virtual ~Utility();
 
-    static void kdl_to_eigen_4x4_d(KDL::Frame& frame, Eigen::Matrix4d& mat);
-    static void create_kdl_frame(float x, float y, float z, float roll, float pitch, float yaw, KDL::Frame& out_frame);
-    static void create_eigen_4x4_d(float x, float y, float z, float roll, float pitch, float yaw, Eigen::Matrix4d& mat);
-    static void eigen_4x4_to_geometrypose_d(Eigen::Matrix4d& mat, geometry_msgs::Pose& pose);
-    static void eigen_4x4_d_to_tf(Eigen::Matrix4d& t, tf::Transform& tf, bool reverse);
+    static void kdl_to_eigen_4x4_d(KDL::Frame &frame, Eigen::Matrix4d &mat);
+    static void create_kdl_frame(float x, float y, float z, float roll, float pitch, float yaw, KDL::Frame &out_frame);
+    static void create_eigen_4x4_d(float x, float y, float z, float roll, float pitch, float yaw, Eigen::Matrix4d &mat);
+    static void eigen_4x4_to_geometrypose_d(Eigen::Matrix4d &mat, geometry_msgs::Pose &pose);
+    static void eigen_4x4_d_to_tf(Eigen::Matrix4d &t, tf::Transform &tf, bool reverse);
     static void HSVtoRGB(double &r, double &g, double &b, double h, double s, double v);
 
-private:
-
+  private:
 };
 
 #endif /* UTILITY_H */
-

@@ -1,3 +1,11 @@
+/* 
+ * Copyright (C) 2017 daniele de gregorio, University of Bologna - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the GNU GPLv3 license.
+ *
+ * please write to: d.degregorio@unibo.it
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -548,7 +556,7 @@ int main(int argc, char **argv)
 {
 
     // Initialize ROS
-    ros::init(argc, argv, "skamdunk_tracker");
+    ros::init(argc, argv, "skimap_live");
     nh = new ros::NodeHandle("~");
     tf_listener = new tf::TransformListener();
 

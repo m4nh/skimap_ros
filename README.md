@@ -100,6 +100,7 @@ with these two names:
 Where *base_frame_name* will be the Global Reference Frame of the Slam system (e.g. usually centered in the first camera pose).
 
 # LICENSE
+You may use, distribute and modify this code under the terms of the GNU GPLv3 license.
 If you use *SkiMap* in an academic work, please cite:
 ```
 @inproceedings{degregorio2017skimap,

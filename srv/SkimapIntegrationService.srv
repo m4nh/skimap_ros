@@ -1,0 +1,5 @@
+geometry_msgs/Pose sensor_pose
+geometry_msgs/Point[] points
+float32[] weights
+---
+uint8 status

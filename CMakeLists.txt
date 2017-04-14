@@ -13,9 +13,25 @@ find_package(catkin REQUIRED
     image_transport
     pcl_ros
     nav_msgs
+    std_msgs
+    geometry_msgs
+    message_generation
     tf
     tf_conversions
     )
+
+#Services
+add_service_files(
+  FILES
+  SkimapIntegrationService.srv
+  SkimapVisitingService.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+)
 
 # useful macros
 include(CMakeDependentOption)
@@ -141,6 +157,9 @@ include_directories(
 
 add_executable(skimap_live src/nodes/skimap_live.cpp)
 target_link_libraries(skimap_live ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
+add_executable(skimap_map_service src/nodes/skimap_map_service.cpp)
+target_link_libraries(skimap_map_service ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 
 if(BUILD_SLAMDUNK)

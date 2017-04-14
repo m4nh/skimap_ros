@@ -1,0 +1,5 @@
+geometry_msgs/Point query_center_point
+float32 query_radius
+---
+geometry_msgs/Point[] points
+float32[] weights

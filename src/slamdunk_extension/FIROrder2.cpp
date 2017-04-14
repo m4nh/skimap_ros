@@ -1,7 +1,16 @@
+/* 
+ * Copyright (C) 2017 daniele de gregorio, University of Bologna - All Rights Reserved
+ * You may use, distribute and modify this code under the
+ * terms of the GNU GPLv3 license.
+ *
+ * please write to: d.degregorio@unibo.it
+ */
+
 #include "FIROrder2.h"
 #include <kdl/frames.hpp>
 
-FIROrder2::FIROrder2(int data_size, double cutoff, double quality) {
+FIROrder2::FIROrder2(int data_size, double cutoff, double quality)
+{
     this->data_size = data_size;
     this->Q = quality;
     this->updateParameters(cutoff);
@@ -9,21 +18,24 @@ FIROrder2::FIROrder2(int data_size, double cutoff, double quality) {
 
     this->data.resize(data_size);
     this->output.resize(data_size);
-    for (int i = 0; i < data_size; i++) {
+    for (int i = 0; i < data_size; i++)
+    {
         this->data[i].resize(4);
     }
 }
 
-FIROrder2::~FIROrder2() {
-
+FIROrder2::~FIROrder2()
+{
 }
 
-void FIROrder2::setSampleTime(double sample_time) {
+void FIROrder2::setSampleTime(double sample_time)
+{
     this->Fs = 1.0 / sample_time;
     this->updateParameters(this->Fc);
 }
 
-void FIROrder2::updateParameters(double cutoff) {
+void FIROrder2::updateParameters(double cutoff)
+{
     this->Fc = cutoff;
 
     this->W = tan(M_PI * this->Fc / this->Fs);
@@ -35,14 +47,11 @@ void FIROrder2::updateParameters(double cutoff) {
     this->A2 = this->N * (pow(this->W, 2) - this->W / this->Q + 1);
 }
 
-void FIROrder2::setInput(int i, double X) {
+void FIROrder2::setInput(int i, double X)
+{
 
     double Acc =
-            X * this->B0
-            + this->data[i][0] * this->B1
-            + this->data[i][1] * this->B2
-            - this->data[i][2] * this->A1
-            - this->data[i][3] * this->A2;
+        X * this->B0 + this->data[i][0] * this->B1 + this->data[i][1] * this->B2 - this->data[i][2] * this->A1 - this->data[i][3] * this->A2;
 
     this->data[i][3] = this->data[i][2];
     this->data[i][2] = Acc;
@@ -53,15 +62,18 @@ void FIROrder2::setInput(int i, double X) {
     this->output[i] = Acc;
 }
 
-void FIROrder2::setInputs(double* Xs) {
-    for (int i = 0; i < this->data_size; i++) {
+void FIROrder2::setInputs(double *Xs)
+{
+    for (int i = 0; i < this->data_size; i++)
+    {
         this->setInput(i, Xs[i]);
-
     }
 }
 
-void FIROrder2::setInitialData(double* Xs) {
-    for (int i = 0; i < this->data_size; i++) {
+void FIROrder2::setInitialData(double *Xs)
+{
+    for (int i = 0; i < this->data_size; i++)
+    {
         this->data[i][0] = Xs[i];
         this->data[i][1] = Xs[i];
         this->data[i][2] = Xs[i];
@@ -72,20 +84,23 @@ void FIROrder2::setInitialData(double* Xs) {
     this->ready = true;
 }
 
-void FIROrder2::setInitialData(Eigen::Isometry3d& iso) {
+void FIROrder2::setInitialData(Eigen::Isometry3d &iso)
+{
 
-    double* data;
+    double *data;
     conversion(iso, data);
     setInitialData(data);
 }
 
-void FIROrder2::setInput(Eigen::Isometry3d& iso) {
-    double* data;
+void FIROrder2::setInput(Eigen::Isometry3d &iso)
+{
+    double *data;
     conversion(iso, data);
     setInputs(data);
 }
 
-void FIROrder2::conversion(Eigen::Isometry3d& iso, double*& data, bool reverse) {
+void FIROrder2::conversion(Eigen::Isometry3d &iso, double *&data, bool reverse)
+{
     //    if (!reverse) {
     //        tf::Transform tf;
     //        tf::transformEigenToTF(iso, tf);
@@ -116,7 +131,8 @@ void FIROrder2::conversion(Eigen::Isometry3d& iso, double*& data, bool reverse) 
     //        tf::transformTFToEigen(tf, iso);
     //
     //    }
-    if (!reverse) {
+    if (!reverse)
+    {
         tf::Transform tf;
         tf::transformEigenToTF(iso, tf);
         KDL::Frame frame;
@@ -127,24 +143,24 @@ void FIROrder2::conversion(Eigen::Isometry3d& iso, double*& data, bool reverse) 
         data[1] = frame.p.y();
         data[2] = frame.p.z();
         frame.M.GetRPY(data[3], data[4], data[5]);
-
-    } else {
+    }
+    else
+    {
         KDL::Frame frame;
         frame.p = KDL::Vector(data[0], data[1], data[2]);
         frame.M = KDL::Rotation::RPY(data[3], data[4], data[5]);
         tf::Transform tf;
         tf::transformKDLToTF(frame, tf);
         tf::transformTFToEigen(tf, iso);
-
     }
 }
 
-void FIROrder2::getOutput(Eigen::Isometry3d& iso) {
-    double* data = &output[0];
+void FIROrder2::getOutput(Eigen::Isometry3d &iso)
+{
+    double *data = &output[0];
     //    for (int i = 0; i < 7; i++) {
     //        printf("Out data %i , %f\n", i, data[i]);
     //    }
 
     conversion(iso, data, true);
 }
-

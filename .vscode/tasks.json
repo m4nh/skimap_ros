@@ -1,0 +1,22 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "0.1.0",
+    "command": "ll",
+    "isShellCommand": true,
+    "args": [],
+    "showOutput": "always",
+    "tasks": [{
+        "taskName": "cwd",
+        "command": "catkinRootBuild",
+        "isBuildCommand": true,
+        "isShellCommand": true,
+        "args": ["."]
+    }, {
+        "taskName": "done",
+        "command": "echo",
+        "isShellCommand": true,
+        "args": ["\"Ready!\""]
+    }]
+
+}

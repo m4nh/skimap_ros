@@ -1,0 +1,24 @@
+<launch>
+
+    <node name="skimap_map_service" output="screen" pkg="skimap_ros" type="skimap_map_service">
+
+        <!-- Generic Parameters -->
+        <param name="hz" value="10" />
+
+        <!-- Input Parameters -->
+        <param name="cloud_topic" value="/vrep/camera_depth" />
+
+        <!-- Output Parameters -->
+        <param name="map_topic" value="live_map" />
+
+        <!-- Mapping parameters -->
+        <param name="base_frame_name" value="world" />
+        <param name="camera_frame_name" value="camera_rf" />
+        <param name="map_resolution" value="0.01" />
+        <param name="min_voxel_weight" value="100" />
+        <param name="ground_level" value="0.54" />
+        <param name="height_color_step" value="0.08" />
+
+    </node>
+
+</launch>

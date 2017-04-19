@@ -17,6 +17,7 @@
 
 //ROS
 #include <ros/ros.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <tf/transform_listener.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
@@ -67,6 +68,8 @@ struct MapServiceParameters
     int min_voxel_weight;
     float ground_level;
     float height_color_step;
+    float camera_max_z;
+    float camera_min_z;
 } mapServiceParameters;
 
 /**
@@ -207,7 +210,6 @@ void cloud_callback(const sensor_msgs::PointCloud2ConstPtr &cloud_msg)
         integration_points.push_back(ip);
     }
 
-    ROS_INFO("Points %d", (int)integration_points.size());
     integrateVoxels(integration_points);
 }
 
@@ -231,7 +233,7 @@ int main(int argc, char **argv)
 
     //Cloud Publisher
     std::string cloud_topic = nh->param<std::string>("cloud_topic", "live_cloud");
-    std::string map_topic = nh->param<std::string>("map_topic", "live_cloud");
+    std::string map_topic = nh->param<std::string>("map_topic", "live_map");
     cloud_subscriber = nh->subscribe(cloud_topic, 1, cloud_callback);
     map_publisher = nh->advertise<visualization_msgs::Marker>(map_topic, 1);
 
@@ -239,6 +241,7 @@ int main(int argc, char **argv)
     nh->param<int>("hz", hz, 30);
 
     //SkiMap
+    nh->param<float>("camera_max_z", mapServiceParameters.camera_max_z, 1.5f);
     nh->param<float>("map_resolution", mapServiceParameters.map_resolution, 0.05f);
     nh->param<float>("ground_level", mapServiceParameters.ground_level, 0.15f);
     nh->param<int>("min_voxel_weight", mapServiceParameters.min_voxel_weight, 10);
@@ -252,7 +255,6 @@ int main(int argc, char **argv)
     // Spin
     while (nh->ok())
     {
-
         /**
         * 3D Map Publisher
         */

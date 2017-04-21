@@ -2,7 +2,7 @@
 This package contains the **SkiMap Mapping Framework** described here:
 
 
-> DE GREGORIO, Daniele; DI STEFANO, Luigi. **SkiMap: An Efficient Mapping Framework for Robot Navigation**. In: *Robotics and Automation (ICRA), 2017 IEEE International Conference on*. [**PDF**](https://www.dropbox.com/s/mvvfqudjohomd6s/ICRA17_1818_FI.pdf?dl=0)
+> DE GREGORIO, Daniele; DI STEFANO, Luigi. **SkiMap: An Efficient Mapping Framework for Robot Navigation**. In: *Robotics and Automation (ICRA), 2017 IEEE International Conference on*. [**PDF**](https://arxiv.org/abs/1704.05832)
 
 
 The framework si wrapped in a ROS package to maximize portability but, since it is an *Header-Only* library,

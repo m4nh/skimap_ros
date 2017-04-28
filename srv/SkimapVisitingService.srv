@@ -1,5 +1,7 @@
+string map_name
 geometry_msgs/Point query_center_point
 float32 query_radius
 ---
 geometry_msgs/Point[] points
+std_msgs/ColorRGBA[] colors
 float32[] weights

@@ -3,11 +3,8 @@ geometry_msgs/Pose sensor_pose
 geometry_msgs/Point[] points
 std_msgs/ColorRGBA[] colors
 float32[] weights
-int8 mode
+int8 action
 
-# Modus operandi of service. If in Asyn mode the response to the client will be sent ASAP, processing points in background
-int8 MODE_SYNC = 0
-int8 MODE_ASYNC = 10
 
 ---
 int32 integrated_points

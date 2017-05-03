@@ -83,13 +83,14 @@ struct VoxelDataRGBW
     VoxelDataRGBW operator+(const VoxelDataRGBW &v2) const
     {
         VoxelDataRGBW c1 = *this;
-        if (c1.w == 0)
+        if (c1.w <= W(0))
             return v2;
         VoxelDataRGBW d;
         d.w = (c1.w + v2.w);
-        if (d.w == W(0))
+        if (d.w <= W(0))
         {
             d.r = d.g = d.b = C(0);
+            d.w = W(0);
         }
         else
         {
@@ -108,13 +109,14 @@ struct VoxelDataRGBW
     VoxelDataRGBW operator-(const VoxelDataRGBW &v2) const
     {
         VoxelDataRGBW v1 = *this;
-        if (v1.w == 0)
+        if (v1.w <= W(0))
             return v1;
         VoxelDataRGBW d;
         d.w = (v1.w - v2.w);
-        if (d.w == W(0))
+        if (d.w <= W(0))
         {
             d.r = d.g = d.b = C(0);
+            d.w = W(0);
         }
         else
         {

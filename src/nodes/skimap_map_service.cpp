@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <iomanip>
 #include <cstdint>
-#include <queue>
 #include <boost/thread/thread.hpp>
 #include <chrono>
 
@@ -49,7 +48,7 @@
 #include <skimap_ros/SkimapIntegrationService.h>
 
 //skimap
-typedef skimap::VoxelDataRGBW<uint8_t, float> VoxelDataColor;
+typedef skimap::VoxelDataRGBW<uint8_t, int16_t> VoxelDataColor;
 typedef skimap::SkiMap<VoxelDataColor, int16_t, float> SKIMAP;
 typedef skimap::SkiMap<VoxelDataColor, int16_t, float>::Voxel3D Voxel3D;
 typedef skimap::SkiMap<VoxelDataColor, int16_t, float>::Tiles2D Tiles2D;
@@ -74,6 +73,7 @@ struct map_service_parameters
     int min_voxel_weight;
     float ground_level;
     float height_color_step;
+    bool height_color_enabled;
     float camera_max_z;
     float camera_min_z;
 } map_service_parameters;
@@ -101,15 +101,6 @@ struct IntegrationPoint
     float x, y, z;
     VoxelDataColor voxel_data;
 };
-
-/**
- * Integration queue
- */
-struct IntegrationQueue
-{
-    std::queue<std::vector<IntegrationPoint>> queue;
-    boost::mutex queue_mutex;
-} integration_queue;
 
 /**
  * Creates a "blank" visualization marker with some attributes
@@ -140,7 +131,7 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id, std::vec
     cv::Mat colorSpace(1, voxels.size(), CV_32FC3);
     for (int i = 0; i < voxels.size(); i++)
     {
-        colorSpace.at<cv::Vec3f>(i)[0] = 180 - ((voxels[i].z - map_service_parameters.ground_level) / map_service_parameters.height_color_step) * 180;
+        colorSpace.at<cv::Vec3f>(i)[0] = 180 - ((voxels[i].z - map_service_parameters.ground_level) / (map_service_parameters.height_color_step / 2)) * 180;
         colorSpace.at<cv::Vec3f>(i)[1] = 1;
         colorSpace.at<cv::Vec3f>(i)[2] = 1;
     }
@@ -164,10 +155,20 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id, std::vec
          */
         std_msgs::ColorRGBA color;
 
-        color.r = voxels[i].data->r / 255.0;
-        color.g = voxels[i].data->g / 255.0;
-        color.b = voxels[i].data->b / 255.0;
-        color.a = 1;
+        if (!map_service_parameters.height_color_enabled)
+        {
+            color.r = voxels[i].data->r / 255.0;
+            color.g = voxels[i].data->g / 255.0;
+            color.b = voxels[i].data->b / 255.0;
+            color.a = 1;
+        }
+        else
+        {
+            color.r = colorSpace.at<cv::Vec3f>(i)[0];
+            color.g = colorSpace.at<cv::Vec3f>(i)[1];
+            color.b = colorSpace.at<cv::Vec3f>(i)[2];
+            color.a = 1;
+        }
 
         marker.points.push_back(point);
         marker.colors.push_back(color);
@@ -254,10 +255,6 @@ bool integration_service_callback(skimap_ros::SkimapIntegrationService::Request 
 
     tf::Quaternion q = base_to_camera.getRotation();
     tf::Vector3 v = base_to_camera.getOrigin();
-    std::cout << "- Translation: [" << v.getX() << ", " << v.getY() << ", " << v.getZ() << "]" << std::endl;
-    std::cout << "- Rotation: in Quaternion [" << q.getX() << ", " << q.getY() << ", "
-              << q.getZ() << ", " << q.getW() << "]" << std::endl;
-
     std::vector<IntegrationPoint> integration_points;
 
     for (int i = 0; i < req.points.size(); i++)
@@ -288,42 +285,24 @@ bool integration_service_callback(skimap_ros::SkimapIntegrationService::Request 
             ip.voxel_data.b = 255;
         }
 
-        ip.voxel_data.w = 1;
+        if (i < req.weights.size())
+        {
+            ip.voxel_data.w = req.weights[i];
+        }
+        else
+        {
+            ip.voxel_data.w = 1;
+        }
+
         integration_points.push_back(ip);
     }
 
     ROS_INFO("Request integration of %d points.", int(integration_points.size()));
-    if (req.mode == skimap_ros::SkimapIntegrationService::Request::MODE_SYNC)
-    {
-        integrateVoxels(integration_points);
-        res.integrated_points = int(integration_points.size());
-        res.status = skimap_ros::SkimapIntegrationService::Response::STATUS_OK;
-    }
-    else
-    {
-        boost::mutex::scoped_lock lock(integration_queue.queue_mutex);
-        integration_queue.queue.push(integration_points);
-        res.integrated_points = 0;
-        res.status = skimap_ros::SkimapIntegrationService::Response::STATUS_OK;
-    }
-    return true;
-}
+    integrateVoxels(integration_points);
+    res.integrated_points = int(integration_points.size());
+    res.status = skimap_ros::SkimapIntegrationService::Response::STATUS_OK;
 
-/**
- * Deque process for integration points
- */
-void integration_dequeuer()
-{
-    while (nh->ok())
-    {
-        boost::mutex::scoped_lock lock(integration_queue.queue_mutex);
-        if (integration_queue.queue.size() > 0)
-        {
-            std::vector<IntegrationPoint> integration_points = integration_queue.queue.front();
-            integration_queue.queue.pop();
-            integrateVoxels(integration_points);
-        }
-    }
+    return true;
 }
 
 /**
@@ -352,7 +331,6 @@ int main(int argc, char **argv)
 
     //Services
     ros::ServiceServer service_integration = nh->advertiseService("integration_service", integration_service_callback);
-    //ros::ServiceServer service_query = n.advertiseService("integration_service", add);
 
     int hz;
     nh->param<int>("hz", hz, 30);
@@ -363,6 +341,7 @@ int main(int argc, char **argv)
     nh->param<float>("ground_level", map_service_parameters.ground_level, 0.15f);
     nh->param<int>("min_voxel_weight", map_service_parameters.min_voxel_weight, 10);
     nh->param<float>("height_color_step", map_service_parameters.height_color_step, 0.5f);
+    nh->param<bool>("height_color", map_service_parameters.height_color_enabled, false);
 
     map = new SKIMAP(map_service_parameters.map_resolution, map_service_parameters.ground_level);
 
@@ -376,10 +355,13 @@ int main(int argc, char **argv)
         * 3D Map Publisher
         */
         std::vector<Voxel3D> voxels;
-        map->fetchVoxels(voxels);
-        visualization_msgs::Marker map_marker = createVisualizationMarker(base_frame_name, ros::Time::now(), 1, voxels);
+        {
+            boost::mutex::scoped_lock lock(map_synch_manager.map_mutex);
+            map->fetchVoxels(voxels);
+        }
+        visualization_msgs::Marker map_marker = createVisualizationMarker(base_frame_name, ros::Time::now(), map_service_parameters.min_voxel_weight, voxels);
         map_publisher.publish(map_marker);
-        ROS_INFO("Published %d points", int(map_marker.points.size()));
+        //ROS_INFO("Published %d points", int(map_marker.points.size()));
         ros::spinOnce();
         r.sleep();
     }

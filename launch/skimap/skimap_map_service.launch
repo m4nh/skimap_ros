@@ -15,9 +15,13 @@
         <param name="base_frame_name" value="world" />
         <param name="camera_frame_name" value="camera_rf" />
         <param name="map_resolution" value="0.05" />
-        <param name="min_voxel_weight" value="20" />
-        <param name="ground_level" value="0.54" />
-        <param name="height_color_step" value="0.08" />
+        <param name="min_voxel_weight" value="1" />
+
+
+        <!-- Colors of Voxels based on Z Height -->
+        <param name="height_color" value="true" />
+        <param name="height_color_step" value="3" />
+        <param name="ground_level" value="0.0" />
 
     </node>
 

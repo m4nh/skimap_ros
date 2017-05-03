@@ -99,9 +99,14 @@ endif(BUILD_SLAMDUNK)
 ################################################################################
 ################################################################################
 
+## Declare a C++ library
+add_library(${PROJECT_NAME}
+  src/${PROJECT_NAME}/skimap_ros_void_library.cpp
+)
+
+
 catkin_package(
-   INCLUDE_DIRS
-   include/
+   INCLUDE_DIRS include/
    LIBRARIES ${PROJECT_NAME}
 )
 

@@ -6,6 +6,7 @@ This package contains the **SkiMap Mapping Framework** described here:
 Watch the Video:
 <br>
 <a href="https://www.youtube.com/watch?v=MverWmFAgkg" target="_blank"><img src="https://img.youtube.com/vi/MverWmFAgkg/0.jpg" align="left" height="250"  ></a>
+<br>
 
 The framework si wrapped in a ROS package to maximize portability but, since it is an *Header-Only* library,
 can be easily used elsewhere. This package contains also an implementation of **SlamDunk** algorithm described

@@ -1,4 +1,5 @@
 # skimap_ros
+**Authors:** [Daniele De Gregorio](mailto:d.degregorio@unibo.it)
 This package contains the **SkiMap Mapping Framework** described here:
 
 > DE GREGORIO, Daniele; DI STEFANO, Luigi. **SkiMap: An Efficient Mapping Framework for Robot Navigation**. In: *Robotics and Automation (ICRA), 2017 IEEE International Conference on*. [**PDF**](https://arxiv.org/abs/1704.05832)

@@ -24,7 +24,6 @@ find_package(catkin REQUIRED
 add_service_files(
   FILES
   SkimapIntegrationService.srv
-  SkimapVisitingService.srv
 )
 
 generate_messages(
@@ -39,15 +38,8 @@ include(CMakeDependentOption)
 # Find modules
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules ${CMAKE_MODULE_PATH})
 
-#KDL
-find_package(orocos_kdl REQUIRED)
 
-#PCL
-find_package(PCL REQUIRED )
-include_directories(${PCL_INCLUDE_DIRS})
-link_directories(${PCL_LIBRARY_DIRS})
-add_definitions(${PCL_DEFINITIONS})
- 
+
 # OpenMP
 find_package(OpenMP)
 if(OPENMP_FOUND)
@@ -62,7 +54,7 @@ endif(OPENMP_FOUND)
 find_package(Eigen3 REQUIRED)
 
 #OpenCV
-find_package(OpenCV 2.4 REQUIRED nonfree ocl)
+find_package(OpenCV 2.4 REQUIRED)
 if(OpenCV_INCLUDE_DIRS)
   include_directories(${OpenCV_INCLUDE_DIRS})
 endif(OpenCV_INCLUDE_DIRS)
@@ -75,7 +67,10 @@ endif(Boost_FOUND)
 
 
 if(BUILD_SLAMDUNK)
-#G2O 
+  #KDL
+  find_package(orocos_kdl REQUIRED)
+
+  #G2O 
   find_package(G2O)
   if(G2O_FOUND)
     include_directories(${G2O_INCLUDE_DIR})
@@ -92,6 +87,13 @@ if(BUILD_SLAMDUNK)
   else(FLANN_FOUND)
     set(FLANN_ROOT "" CACHE PATH "Installation root for FLANN")
   endif(FLANN_FOUND)
+  
+  #PCL
+  find_package(PCL REQUIRED )
+  include_directories(${PCL_INCLUDE_DIRS})
+  link_directories(${PCL_LIBRARY_DIRS})
+  add_definitions(${PCL_DEFINITIONS})
+  
 endif(BUILD_SLAMDUNK)
 
 

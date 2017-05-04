@@ -17,7 +17,6 @@
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
-#include <kdl/frames_io.hpp>
 #include <visualization_msgs/MarkerArray.h>
 
 //OPENCV

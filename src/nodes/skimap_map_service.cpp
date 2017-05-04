@@ -16,12 +16,10 @@
 
 //ROS
 #include <ros/ros.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <tf/transform_listener.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
-#include <kdl/frames_io.hpp>
 #include <visualization_msgs/MarkerArray.h>
 
 //OPENCV
@@ -31,11 +29,6 @@
 #include <opencv2/features2d.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
-
-//PCL
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 
 //Boost
 #include <boost/algorithm/string.hpp>
@@ -57,13 +50,11 @@ SKIMAP *map;
 //Ros
 ros::NodeHandle *nh;
 tf::TransformListener *tf_listener;
-ros::Subscriber cloud_subscriber;
 ros::Publisher map_publisher;
 
-//Live Cloud
+//Live parameters
 std::string base_frame_name = "world";
 std::string camera_frame_name = "camera";
-sensor_msgs::PointCloud2 current_live_cloud;
 
 /**
  */
@@ -197,49 +188,6 @@ void integrateVoxels(std::vector<IntegrationPoint> &integration_points)
 }
 
 /**
- * Cloud callback
- */
-void cloud_callback(const sensor_msgs::PointCloud2ConstPtr &cloud_msg)
-{
-    pcl::PCLPointCloud2 pcl_pc2;
-    pcl_conversions::toPCL(*cloud_msg, pcl_pc2);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::fromPCLPointCloud2(pcl_pc2, *temp_cloud);
-
-    tf::StampedTransform base_to_camera;
-    try
-    {
-        tf_listener->lookupTransform(base_frame_name, cloud_msg->header.frame_id, cloud_msg->header.stamp, base_to_camera);
-    }
-    catch (tf::TransformException ex)
-    {
-        ROS_ERROR("%s", ex.what());
-        return;
-    }
-
-    std::vector<IntegrationPoint> integration_points;
-    for (int i = 0; i < temp_cloud->points.size(); i++)
-    {
-
-        float x = temp_cloud->points[i].x;
-        float y = temp_cloud->points[i].y;
-        float z = temp_cloud->points[i].z;
-
-        tf::Vector3 base_to_point(x, y, z);
-        base_to_point = base_to_camera * base_to_point;
-
-        IntegrationPoint ip;
-        ip.x = base_to_point.x();
-        ip.y = base_to_point.y();
-        ip.z = base_to_point.z();
-        ip.voxel_data.w = 1;
-        integration_points.push_back(ip);
-    }
-
-    integrateVoxels(integration_points);
-}
-
-/**
  * Integration Service callback
  */
 bool integration_service_callback(skimap_ros::SkimapIntegrationService::Request &req, skimap_ros::SkimapIntegrationService::Response &res)
@@ -323,10 +271,8 @@ int main(int argc, char **argv)
     nh->param<std::string>("base_frame_name", base_frame_name, "world");
     nh->param<std::string>("camera_frame_name", camera_frame_name, "camera");
 
-    //Cloud Publisher
-    std::string cloud_topic = nh->param<std::string>("cloud_topic", "live_cloud");
+    //Map Publisher
     std::string map_topic = nh->param<std::string>("map_topic", "live_map");
-    cloud_subscriber = nh->subscribe(cloud_topic, 1, cloud_callback);
     map_publisher = nh->advertise<visualization_msgs::Marker>(map_topic, 1);
 
     //Services
@@ -334,6 +280,10 @@ int main(int argc, char **argv)
 
     int hz;
     nh->param<int>("hz", hz, 30);
+
+    //Visualization
+    bool auto_publish_markers = false;
+    nh->param<bool>("auto_publish_markers", auto_publish_markers, false);
 
     //SkiMap
     nh->param<float>("camera_max_z", map_service_parameters.camera_max_z, 1.5f);
@@ -351,17 +301,22 @@ int main(int argc, char **argv)
     // Spin
     while (nh->ok())
     {
+
         /**
         * 3D Map Publisher
         */
-        std::vector<Voxel3D> voxels;
+        if (auto_publish_markers)
         {
-            boost::mutex::scoped_lock lock(map_synch_manager.map_mutex);
-            map->fetchVoxels(voxels);
+
+            std::vector<Voxel3D> voxels;
+            {
+                boost::mutex::scoped_lock lock(map_synch_manager.map_mutex);
+                map->fetchVoxels(voxels);
+            }
+            visualization_msgs::Marker map_marker = createVisualizationMarker(base_frame_name, ros::Time::now(), map_service_parameters.min_voxel_weight, voxels);
+            map_publisher.publish(map_marker);
         }
-        visualization_msgs::Marker map_marker = createVisualizationMarker(base_frame_name, ros::Time::now(), map_service_parameters.min_voxel_weight, voxels);
-        map_publisher.publish(map_marker);
-        //ROS_INFO("Published %d points", int(map_marker.points.size()));
+
         ros::spinOnce();
         r.sleep();
     }

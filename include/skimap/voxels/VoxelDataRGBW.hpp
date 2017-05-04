@@ -141,8 +141,8 @@ struct VoxelDataRGBW
     }
 
     /**
-         * Hydrates object from stream.
-         */
+    * Hydrates object from stream.
+    */
     friend std::istream &operator>>(std::istream &is, VoxelDataRGBW<C, W> &voxel)
     {
         double r, g, b, w;

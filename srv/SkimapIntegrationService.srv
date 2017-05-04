@@ -5,6 +5,7 @@ std_msgs/ColorRGBA[] colors
 float32[] weights
 int8 action
 
+int8 ACTION_INTEGRATE = 0
 
 ---
 int32 integrated_points

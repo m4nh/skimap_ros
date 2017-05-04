@@ -17,6 +17,8 @@
         <param name="map_resolution" value="0.05" />
         <param name="min_voxel_weight" value="1" />
 
+        <!-- Visualization -->
+        <param name="auto_publish_markers" value="true" />
 
         <!-- Colors of Voxels based on Z Height -->
         <param name="height_color" value="true" />

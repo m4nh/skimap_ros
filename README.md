@@ -1,9 +1,9 @@
-# skimap_ros for INDIGO
+# skimap_ros
 This package contains the **SkiMap Mapping Framework** described here:
-
 
 > DE GREGORIO, Daniele; DI STEFANO, Luigi. **SkiMap: An Efficient Mapping Framework for Robot Navigation**. In: *Robotics and Automation (ICRA), 2017 IEEE International Conference on*. [**PDF**](https://arxiv.org/abs/1704.05832)
 
+Watch the [Video](https://www.youtube.com/watch?v=MverWmFAgkg) on Youtube.
 
 The framework si wrapped in a ROS package to maximize portability but, since it is an *Header-Only* library,
 can be easily used elsewhere. This package contains also an implementation of **SlamDunk** algorithm described
@@ -16,9 +16,28 @@ RGB-D camera. So it provides not only RGB-D frames but also a whole TF tree, inc
 For this reason this bag can be used as source for **SkiMap** mapping using Odometry to track Camera pose or as source 
 for **SlamDunk+SkiMap** duet where Camera is tracked by Slam System.
 
+### Dependencies
+
+* OpenMP
+* Eigen3
+* OpenCV (2.4)
+* Boost
+
+### LICENSE
+You may use, distribute and modify this code under the terms of the GNU GPLv3 license.
+If you use *SkiMap* in an academic work, please cite:
+```
+@inproceedings{degregorio2017skimap,
+  title={SkiMap: An Efficient Mapping Framework for Robot Navigation},
+  author={De Gregorio, Daniele and Di Stefano, Luigi},
+  booktitle={Robotics and Automation (ICRA), 2017 IEEE International Conference on},
+  year={2017}
+}
+```
+
 ## SkiMap live mapping: *skimap_live.launch*
 
-If the Camera 6-DOF pose is available to us (e.g. the camera is in a eye-to-hand configuration..) we can use **SkiMap**
+If the Camera 6-DOF pose is available (e.g. the camera is in a eye-to-hand configuration..) we can use **SkiMap**
 as a classical Mapping Framework. Furthermore, as described in the paper, if the Global Reference Frames of the Camera Poses 
 lies on ground then SkiMap is able to perform also a 2D Map of the environment simultaneously with the 3D Map. 
 The attached BAG is an useful example to understand the operation of this node because it is collected with a mobile robot 
@@ -49,6 +68,31 @@ in the launch file:
 Remember to set as *base_frame_name* the name of the TF representing the World Frame, or the Fixed Frame, in which the
 *camera_frame_name* is represented. Should be noted that **SkiMap** is not responsible to produce these frames but it uses
 them to build the map, so the accuracy of the reconstruction depends on the accuracy of them.
+
+## SkiMap Service: *skimap_map_service.launch*
+
+A less intrusive manner to use SkiMap is the Map Service launching *skimap_map_service.launch*. This service use *SkimapIntegrationService.srv* as interface to integrate new measurements in the global map. To understand how to create a client for this service you can take a look at *SkiMapServiceClient.hpp* (or you can just use it!). To instantiate our off-the-shelf client just do:
+
+```
+skimap_ros::SkimapServiceClient* skimap_service_client = new skimap_ros::SkimapServiceClient(&nh, "/skimap_map_service/integration_service");
+```
+Remember that the string */skimap_map_service/integration_service* is the name of the service, in this case is the default name used also in the *skimap_map_service.launch* node. Once this client is ready you can just call the *integratePoints* method passing a vector filled with the points representing sensor measurements (in the sensor Reference Frame) and the *geometry_msgs/Pose* representing the 6-DOF pose of the sensor:
+
+```
+typedef skimap_ros::SkimapServiceClient::ColorPoint CPoint;
+std::vector<CPoint> points;
+//Fill vector with your points
+geometry_msgs::Pose sensor_pose;
+//Fill sensor_pose with your camera pose
+skimap_service_client->integratePoints(points, sensor_pose);
+```
+
+This example Client is built with an asynchronous queue so the *integratePoints* method just appends your data to the queue, the real communication with SkiMap Map Service will be made in another thread. This technique is useful when your node requires real-time performance.
+
+### SkiMap with ORBSLAM2:
+
+This [Video](https://www.youtube.com/watch?v=W3nm2LXmgqE) shows an integration of the SkiMap (using the abovementioned SkiMap Map Service) with the popular [ORBSLAM2](https://github.com/raulmur/ORB_SLAM2) framework.
+
 
 ## SlamDunk and SkiMap: *slamdunk_tracker.launch*
 
@@ -99,18 +143,8 @@ with these two names:
 ```
 Where *base_frame_name* will be the Global Reference Frame of the Slam system (e.g. usually centered in the first camera pose).
 
-# LICENSE
-You may use, distribute and modify this code under the terms of the GNU GPLv3 license.
-If you use *SkiMap* in an academic work, please cite:
-```
-@inproceedings{degregorio2017skimap,
-  title={SkiMap: An Efficient Mapping Framework for Robot Navigation},
-  author={De Gregorio, Daniele and Di Stefano, Luigi},
-  booktitle={Robotics and Automation (ICRA), 2017 IEEE International Conference on},
-  year={2017}
-}
-```
 
+### LICENSE
 If you use *SlamDunk* in an academic work, please cite:
 
 ```

@@ -21,7 +21,6 @@
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/subscriber.h>
-#include <kdl/frames_io.hpp>
 #include <visualization_msgs/MarkerArray.h>
 
 //OPENCV
@@ -31,11 +30,6 @@
 #include <opencv2/features2d.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
-
-//PCL
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 
 //Skimap
 #include <skimap/SkiMap.hpp>
@@ -55,10 +49,9 @@ ros::Publisher cloud_publisher;
 ros::Publisher map_publisher;
 ros::Publisher map_2d_publisher;
 
-//Live Cloud
+//Live Params
 std::string base_frame_name = "slam_map";
 std::string camera_frame_name = "camera";
-sensor_msgs::PointCloud2 current_live_cloud;
 
 /**
  */

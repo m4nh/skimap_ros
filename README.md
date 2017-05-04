@@ -3,7 +3,8 @@ This package contains the **SkiMap Mapping Framework** described here:
 
 > DE GREGORIO, Daniele; DI STEFANO, Luigi. **SkiMap: An Efficient Mapping Framework for Robot Navigation**. In: *Robotics and Automation (ICRA), 2017 IEEE International Conference on*. [**PDF**](https://arxiv.org/abs/1704.05832)
 
-Watch the [Video](https://www.youtube.com/watch?v=MverWmFAgkg) on Youtube.
+Watch the Video:
+[![video](https://img.youtube.com/vi/MverWmFAgkg/0.jpg)](https://www.youtube.com/watch?v=MverWmFAgkg)
 
 The framework si wrapped in a ROS package to maximize portability but, since it is an *Header-Only* library,
 can be easily used elsewhere. This package contains also an implementation of **SlamDunk** algorithm described

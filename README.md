@@ -98,7 +98,7 @@ This example Client is built with an asynchronous queue so the *integratePoints*
 
 This Video:
 
-<a href="https://www.youtube.com/watch?v=MverWmFAgkg" target="_blank"><img src="https://img.youtube.com/vi/W3nm2LXmgqE/0.jpg" 
+<a href="https://www.youtube.com/watch?v=W3nm2LXmgqE" target="_blank"><img src="https://img.youtube.com/vi/W3nm2LXmgqE/0.jpg" 
 alt="paper video" width="240" height="180" border="10" /></a>
 
 shows an integration of the SkiMap (using the abovementioned SkiMap Map Service) with the popular [ORBSLAM2](https://github.com/raulmur/ORB_SLAM2) framework.

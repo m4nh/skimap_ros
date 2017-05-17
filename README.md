@@ -1,10 +1,16 @@
 # skimap_ros
+**Author:** [Daniele De Gregorio](https://www.unibo.it/sitoweb/d.degregorio/)
+
 This package contains the **SkiMap Mapping Framework** described here:
 
 > DE GREGORIO, Daniele; DI STEFANO, Luigi. **SkiMap: An Efficient Mapping Framework for Robot Navigation**. In: *Robotics and Automation (ICRA), 2017 IEEE International Conference on*. [**PDF**](https://arxiv.org/abs/1704.05832)
 
 Watch the Video:
-[![video](https://img.youtube.com/vi/MverWmFAgkg/0.jpg)](https://www.youtube.com/watch?v=MverWmFAgkg)
+
+<a href="https://www.youtube.com/watch?v=MverWmFAgkg" target="_blank"><img src="https://img.youtube.com/vi/MverWmFAgkg/0.jpg" 
+alt="paper video" width="240" height="180" border="10" /></a>
+
+
 
 The framework si wrapped in a ROS package to maximize portability but, since it is an *Header-Only* library,
 can be easily used elsewhere. This package contains also an implementation of **SlamDunk** algorithm described
@@ -92,7 +98,12 @@ This example Client is built with an asynchronous queue so the *integratePoints*
 
 ### SkiMap with ORBSLAM2:
 
-This [Video](https://www.youtube.com/watch?v=W3nm2LXmgqE) shows an integration of the SkiMap (using the abovementioned SkiMap Map Service) with the popular [ORBSLAM2](https://github.com/raulmur/ORB_SLAM2) framework.
+This Video:
+
+<a href="https://www.youtube.com/watch?v=W3nm2LXmgqE" target="_blank"><img src="https://img.youtube.com/vi/W3nm2LXmgqE/0.jpg" 
+alt="paper video" width="240" height="180" border="10" /></a>
+
+shows an integration of the SkiMap (using the abovementioned SkiMap Map Service) with the popular [ORBSLAM2](https://github.com/raulmur/ORB_SLAM2) framework.
 
 
 ## SlamDunk and SkiMap: *slamdunk_tracker.launch*

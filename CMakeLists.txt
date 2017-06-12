@@ -167,7 +167,7 @@ target_link_libraries(skimap_live ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 add_executable(skimap_map_service src/nodes/skimap_map_service.cpp)
 target_link_libraries(skimap_map_service ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
-
+add_dependencies(skimap_map_service skimap_ros_generate_messages_cpp)
 
 if(BUILD_SLAMDUNK)
     #SLAM TRACKER

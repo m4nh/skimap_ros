@@ -16,6 +16,8 @@
 #include <string.h>
 #include <map>
 
+namespace skimap
+{
 /**
  * Voxel Data containing Multi-Labels values and relatives Weight.
  * L template represents datatype for a Label.
@@ -103,12 +105,17 @@ struct VoxelDataMultiLabel
     /**
      * @return the Label with higher Weight
      */
-    L heavierLabel()
+    L heavierLabel(bool only_positive = false)
     {
         W max = W(0);
         L max_label = L(-1);
         for (auto it = labels_map.begin(); it != labels_map.end(); ++it)
         {
+            if (only_positive)
+            {
+                if (it->second < 0)
+                    continue;
+            }
             if (it->second > max)
             {
                 max = it->second;
@@ -121,11 +128,16 @@ struct VoxelDataMultiLabel
     /**
      * @return the higher Weight
      */
-    W heavierWeight()
+    W heavierWeight(bool only_positive = false)
     {
         W max = W(0);
         for (auto it = labels_map.begin(); it != labels_map.end(); ++it)
         {
+            if (only_positive)
+            {
+                if (it->second < 0)
+                    continue;
+            }
             if (it->second > max)
             {
                 max = it->second;
@@ -187,5 +199,6 @@ struct VoxelDataMultiLabel
         return is;
     }
 };
+}
 
 #endif /* VOXELDATAMULTILABEL_HPP */

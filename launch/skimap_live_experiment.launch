@@ -1,0 +1,42 @@
+<launch>
+
+    <arg name="camera" default="camera" />
+
+    <node name="skimap_live" output="screen" pkg="skimap_ros" type="skimap_live">
+        
+        <!-- Generic Parameters -->
+        <param name="hz" value="10"/>
+
+        <!-- Topics Parameters -->
+        <param name="camera_rgb_topic" value="/$(arg camera)/rgb/image_raw"/>
+        <param name="camera_depth_topic" value="/$(arg camera)/depth/image_raw"/>
+        
+        <!-- Cloud parameters  -->
+        <param name="point_cloud_downscale" value="2"/>
+
+        <!-- RGB-D Parameters -->
+        <param name="fx" value="540.175979"/>
+        <param name="fy" value="530.740137"/>
+        <param name="cx" value="325.399891"/>
+        <param name="cy" value="239.056878"/>
+        <param name="rows" value="480"/>
+        <param name="cols" value="640"/>
+        <param name="camera_distance_max" value="0.7"/>
+        <param name="camera_distance_min" value="0.45"/>
+        
+        <!-- Mapping parameters -->
+        <param name="base_frame_name" value="world"/>
+        <param name="camera_frame_name" value="camera"/>
+        <param name="map_resolution" value="0.002"/>
+        <param name="min_voxel_weight" value="10"/>
+        <param name="ground_level" value="0.05"/>
+        <param name="agent_height" value="1.5"/>
+        <param name="enable_chisel" value="false"/>
+        <param name="chisel_step" value="30"/>
+        <param name="height_color" value="true"/>
+
+    </node>
+
+   <!-- <node pkg="rviz" type="rviz" output="screen" name="rviz" args="-d $(find skimap_ros)/rviz/skimap_live.rviz" /> -->
+
+</launch>

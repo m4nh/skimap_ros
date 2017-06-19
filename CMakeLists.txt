@@ -5,7 +5,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 ## OPTIONS
 option(BUILD_SLAMDUNK "Build Slamdunk Library" OFF)
-
+option(EXPERIMENTAL "Experimental features" OFF)
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED 
@@ -179,6 +179,12 @@ if(BUILD_SLAMDUNK)
     target_link_libraries(testing ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} slamdunk   ${PCL_LIBRARIES})
 endif(BUILD_SLAMDUNK)
 
+if(EXPERIMENTAL)
+    #SLAM TRACKER
+    add_executable(skimap_pose_filtering  src/nodes/skimap_pose_filtering.cpp)
+    target_link_libraries(skimap_pose_filtering ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
+endif(EXPERIMENTAL)
 
 
 ###############################################################################

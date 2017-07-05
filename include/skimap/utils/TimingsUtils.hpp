@@ -36,6 +36,6 @@ struct Timings
 
     void printTime(std::string name)
     {
-        printf("Time for %s: %f ms", name.c_str(), float(elapsedMicroseconds(name).count()) / 1000.0f);
+        printf("Time for %s: %f ms\n", name.c_str(), float(elapsedMicroseconds(name).count()) / 1000.0f);
     }
 } DEBUG_TIMINGS;

@@ -15,6 +15,7 @@
 #include <map>
 #include <iostream>
 #include <omp.h>
+#include <boost/thread.hpp>
 #include <skimap/voxels/GenericVoxel3D.hpp>
 #include <skimap/SkipList.hpp>
 
@@ -93,7 +94,7 @@ class SkipListMap
          */
     SkipListMap(K min_index, K max_index, D resolution_x, D resolution_y, D resolution_z) : _min_index_value(min_index), _max_index_value(max_index),
                                                                                             _resolution_x(resolution_x), _resolution_y(resolution_y), _resolution_z(resolution_z),
-                                                                                            _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false)
+                                                                                            _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
     {
         initialize(_min_index_value, _max_index_value);
     }
@@ -102,7 +103,7 @@ class SkipListMap
          */
     SkipListMap(D resolution) : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
                                 _resolution_x(resolution), _resolution_y(resolution), _resolution_z(resolution),
-                                _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false)
+                                _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
     {
         initialize(_min_index_value, _max_index_value);
     }
@@ -111,7 +112,7 @@ class SkipListMap
          */
     SkipListMap() : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
                     _resolution_x(0.01), _resolution_y(0.01), _resolution_z(0.1),
-                    _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false)
+                    _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
     {
     }
 
@@ -120,6 +121,10 @@ class SkipListMap
          */
     virtual ~SkipListMap()
     {
+        for (typename std::map<K, boost::mutex *>::iterator it = this->mutex_map.begin(); it != this->mutex_map.end(); ++it)
+        {
+            delete it->second;
+        }
     }
 
     /**
@@ -241,6 +246,35 @@ class SkipListMap
     }
 
     /**
+    * Lock concurrency access to a X branch
+    * @param key x index
+    * @return 
+    */
+    virtual void lockMap(K key)
+    {
+        this->mutex_map_mutex.lock();
+        if (this->mutex_map.count(key) == 0)
+        {
+            mutex_map[key] = new boost::mutex();
+        }
+        this->mutex_map_mutex.unlock();
+        mutex_map[key]->lock();
+    }
+
+    /**
+    * UnLock concurrency access to a X branch
+    * @param key x index
+    * @return 
+    */
+    virtual void unlockMap(K key)
+    {
+        if (this->mutex_map.count(key) > 0)
+        {
+            mutex_map[key]->unlock();
+        }
+    }
+
+    /**
          * 
          * @param x
          * @param y
@@ -276,6 +310,8 @@ class SkipListMap
             }
             else
             {
+                if (this->hasConcurrencyAccess())
+                    this->lockMap(ix);
                 const typename X_NODE::NodeType *ylist = _root_list->find(ix);
                 if (ylist == NULL)
                 {
@@ -298,6 +334,8 @@ class SkipListMap
                 {
                     *(voxel->value) = *(voxel->value) + *data;
                 }
+                if (this->hasConcurrencyAccess())
+                    this->unlockMap(ix);
             }
             return true;
         }
@@ -577,6 +615,16 @@ class SkipListMap
         }
     }
 
+    virtual void enableConcurrencyAccess(bool status = true)
+    {
+        this->_self_concurrency_management = status;
+    }
+
+    virtual bool hasConcurrencyAccess()
+    {
+        return this->_self_concurrency_management;
+    }
+
   protected:
     /**
          * 
@@ -617,7 +665,12 @@ class SkipListMap
     long _bytes_counter;
     bool _batch_integration;
     bool _initialized;
+    bool _self_concurrency_management;
     IntegrationMap _current_integration_map;
+
+    //concurrency
+    boost::mutex mutex_map_mutex;
+    std::map<K, boost::mutex *> mutex_map;
 };
 }
 

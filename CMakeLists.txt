@@ -6,6 +6,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 ## OPTIONS
 option(BUILD_SLAMDUNK "Build Slamdunk Library" OFF)
 option(EXPERIMENTAL "Experimental features" OFF)
+option(BUILD_TUTORIALS "Build Tutorials Nodes" ON)
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED 
@@ -185,6 +186,13 @@ if(EXPERIMENTAL)
     target_link_libraries(skimap_pose_filtering ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 endif(EXPERIMENTAL)
+
+if(BUILD_TUTORIALS)
+    #INTEGRATION OF RANDOM POINTS
+    add_executable(integration_of_random_points  src/nodes/tutorials/integration_of_random_points.cpp)
+    target_link_libraries(integration_of_random_points ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+endif(BUILD_TUTORIALS)
+
 
 
 ###############################################################################

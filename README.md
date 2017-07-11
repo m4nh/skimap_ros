@@ -41,6 +41,9 @@ If you use *SkiMap* in an academic work, please cite:
   year={2017}
 }
 ```
+## Simple Example
+
+The [Tutorial: integration_of_random_points.cpp ](https://github.com/m4nh/skimap_ros/blob/master/src/nodes/tutorials/integration_of_random_points.cpp) is a simple tutorial for the use of SkiMap with your own software. The example just shows how to integrate random 3D points in the map and how to retrieve them (e.g. for visualization purposes). This example is intentionally unlinked from ROS library to show the usage of the data structure only.
 
 ## SkiMap live mapping: *skimap_live.launch*
 

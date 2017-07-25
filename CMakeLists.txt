@@ -21,6 +21,8 @@ find_package(catkin REQUIRED
     tf_conversions
     )
 
+include_directories(${catkin_INCLUDE_DIRS})
+
 #Services
 add_service_files(
   FILES
@@ -55,7 +57,7 @@ endif(OPENMP_FOUND)
 find_package(Eigen3 REQUIRED)
 
 #OpenCV
-find_package(OpenCV 2.4 REQUIRED)
+find_package(OpenCV REQUIRED)
 if(OpenCV_INCLUDE_DIRS)
   include_directories(${OpenCV_INCLUDE_DIRS})
 endif(OpenCV_INCLUDE_DIRS)

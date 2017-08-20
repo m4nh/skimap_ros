@@ -4,7 +4,7 @@
 This package contains the **SkiMap Mapping Framework** described here:
 
 > D. De Gregorio and L. Di Stefano, **SkiMap: An efficient mapping framework for robot navigation**, 2017 IEEE International Conference on Robotics and Automation (ICRA), Singapore, 2017, pp. 2569-2576.
-doi: 10.1109/ICRA.2017.7989299 [**LINK**](http://ieeexplore.ieee.org.ezproxy.unibo.it/stamp/stamp.jsp?tp=&arnumber=7989299&isnumber=7988677) || [**PDF ARXIV**](https://arxiv.org/abs/1704.05832)
+doi: 10.1109/ICRA.2017.7989299 [**LINK**](http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7989299&isnumber=7988677) || [**PDF ARXIV**](https://arxiv.org/abs/1704.05832)
 
 Watch the Video:
 

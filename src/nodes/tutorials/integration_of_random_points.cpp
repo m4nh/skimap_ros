@@ -17,8 +17,6 @@
 #include <skimap/SkiMap.hpp>
 #include <skimap/voxels/VoxelDataRGBW.hpp>
 
-//Utils
-#include <skimap/utils/TimingsUtils.hpp>
 
 #define MAX_RANDOM_COORD 10.0
 #define MIN_RANDOM_COORD -10.0
@@ -73,7 +71,7 @@ int main(int argc, char **argv)
         /**
          * Integration Timer
          */
-        DEBUG_TIMINGS.startTimer("Integration");
+        
 
 #pragma omp parallel for
         for (int i = 0; i < N_POINTS; i++)
@@ -108,17 +106,15 @@ int main(int argc, char **argv)
                 &voxel);
         }
 
-        DEBUG_TIMINGS.printTime("Integration");
+        
 
         /**
          * Map Visiting. With this command you can extract all voxels in SkiMap.
          * You can iterate on results to display Voxels in your viewer
          */
-        DEBUG_TIMINGS.startTimer("Visiting");
         std::vector<Voxel3D> voxels;
         map->fetchVoxels(voxels);
-        DEBUG_TIMINGS.printTime("Visiting");
-
+        
         printf("Map voxels: %d\n", int(voxels.size()));
     }
 }

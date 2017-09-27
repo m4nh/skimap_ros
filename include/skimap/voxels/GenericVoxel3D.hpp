@@ -49,6 +49,17 @@ struct GenericVoxel3D
     }
 
     /**
+         * Full Constructor
+         * @param x X coordinate
+         * @param y Y coordinate
+         * @param z Z coordinate
+         * @param data User Data pointer
+         */
+    GenericVoxel3D(D x, D y, V *data) : x(x), y(y), z(0.0), data(data)
+    {
+    }
+
+    /**
          * Serializes object into stream.
          */
     friend std::ostream &operator<<(std::ostream &os, const GenericVoxel3D<V, D> &voxel)

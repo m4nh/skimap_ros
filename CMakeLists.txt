@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(skimap_ros)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 ## OPTIONS
 option(BUILD_SLAMDUNK "Build Slamdunk Library" OFF)
@@ -162,8 +162,19 @@ include_directories(
 )
 
 #########################
+# GRID EXPERIMENTS
+#########################
+
+include_directories(/home/daniele/Downloads/ann_1.1.2/include)
+add_executable(grid2d src/nodes/experiments/grid2d.cpp)
+target_link_libraries(grid2d /home/daniele/Downloads/ann_1.1.2/lib/libANN.a ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
+
+#########################
 # NODES
 #########################
+
+
 
 add_executable(skimap_live src/nodes/skimap_live.cpp)
 target_link_libraries(skimap_live ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})

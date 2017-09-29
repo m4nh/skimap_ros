@@ -167,7 +167,9 @@ include_directories(
 
 include_directories(/home/daniele/Downloads/ann_1.1.2/include)
 add_executable(grid2d src/nodes/experiments/grid2d.cpp)
-target_link_libraries(grid2d /home/daniele/Downloads/ann_1.1.2/lib/libANN.a ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(grid2d 
+  /home/daniele/Downloads/ann_1.1.2/lib/libANN.a
+  ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 
 #########################

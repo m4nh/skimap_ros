@@ -11,9 +11,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <utility> // std::pair
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+
+#include <algorithm>
+#include <fstream>
+#include <iostream>
 
 #include "sys/types.h"
 #include "sys/sysinfo.h"
+
+#include <ANN/ANN.h> // ANN declarations
+#include <flann/flann.hpp>
 
 //Eigen
 #include <Eigen/Core>
@@ -26,16 +37,28 @@
 #include <skimap/SkipListGrid.hpp>
 #include <skimap/voxels/VoxelDataMatrix.hpp>
 
-#include <ANN/ANN.h> // ANN declarations
-
 #include <skimap/utils/ArgParse.hpp>
 
 #define MAX_RANDOM_COLOR 1.0
 #define MIN_RANDOM_COLOR 0.0
 
-using namespace cv;
-
 struct sysinfo memInfo;
+
+struct QPoint
+{
+  double coords[2];
+
+  QPoint(){};
+
+  QPoint(const QPoint &other)
+  {
+    coords[0] = other.coords[0];
+    coords[1] = other.coords[1];
+  }
+
+  double operator[](size_t idx) const { return coords[idx]; }
+  double &operator[](size_t idx) { return coords[idx]; }
+};
 
 void process_mem_usage(double &vm_usage, double &resident_set)
 {
@@ -144,9 +167,9 @@ void drawPoints(cv::Mat &image, Points &points, cv::Scalar color)
   {
     x = points[i][0];
     y = points[i][1];
-    image.at<Vec3b>(y, x)[0] = color[2];
-    image.at<Vec3b>(y, x)[1] = color[1];
-    image.at<Vec3b>(y, x)[2] = color[0];
+    image.at<cv::Vec3b>(y, x)[0] = color[2];
+    image.at<cv::Vec3b>(y, x)[1] = color[1];
+    image.at<cv::Vec3b>(y, x)[2] = color[0];
   }
 }
 
@@ -219,6 +242,7 @@ void computeDenseGrid(cv::Mat &image, Points &points, CoordType radius, float &s
   getTime();
   CoordType x, y;
   int ix, iy, index;
+
   for (int i = 0; i < points.size(); i++)
   {
     x = points[i][0];
@@ -301,6 +325,191 @@ void computeDenseGrid(cv::Mat &image, Points &points, CoordType radius, float &s
   delete[] grid;
 }
 
+void computeAnn(cv::Mat &image, Points &points, CoordType radius, std::string substring, bool print_output)
+{
+
+  ANNpointArray dataPts; // data points
+  ANNpoint queryPt;      // query point
+  ANNidxArray nnIdx;     // near neighbor indices
+  ANNdistArray dists;    // near neighbor distances
+
+  int maxPts = points.size();
+  int k = N_POINTS;
+  int dim = 2;
+  queryPt = annAllocPt(dim); // allocate query point
+  dataPts = annAllocPts(maxPts, dim);
+
+  nnIdx = new ANNidx[k]; // allocate near neigh indices
+  dists = new ANNdist[k];
+
+  for (int i = 0; i < maxPts; i++)
+  {
+    dataPts[i][0] = points[i][0];
+    dataPts[i][1] = points[i][1];
+  }
+
+  ANNpoint q = annAllocPt(dim);
+  q[0] = CoordinateType(MAX_RANDOM_COORD / 2);
+  q[1] = CoordinateType(MAX_RANDOM_COORD / 2);
+
+  ANNdist sqRad = radius;
+
+  getTime();
+  auto kdTree = new ANNkd_tree( // build search structure
+      dataPts,                  // the data points
+      N_POINTS,                 // number of points
+      dim);
+  double time_creation = deltaTime();
+
+  getTime();
+  int res = kdTree->annkFRSearch( // approx fixed-radius kNN search
+      q,                          // query point
+      sqRad * sqRad,              // squared radius
+      N_POINTS,                   // number of near neighbors to return
+      nnIdx,                      // nearest neighbor array (modified)
+      dists);
+  double time_search = deltaTime();
+  double vm, rss;
+  process_mem_usage(vm, rss);
+  double memory = rss;
+
+  if (print_output)
+  {
+    printResults(substring, time_creation, time_search, memory);
+  }
+  if (_debug)
+  {
+    Points result;
+    for (int i = 0; i < res; i++)
+    {
+      result.push_back(points[nnIdx[i]]);
+    }
+
+    drawPoints(image, points, cv::Scalar(255, 0, 0));
+    cv::imshow("img", image);
+    cv::waitKey(0);
+
+    drawPoints(image, result, cv::Scalar(0, 255, 0));
+    cv::imshow("img", image);
+    cv::waitKey(0);
+  }
+}
+void computeFlann(cv::Mat &image, Points &points, CoordType radius, std::string substring, bool print_output)
+{
+  cv::Mat_<CoordType> features(0, 2);
+  int ndim = 2;
+  using namespace flann;
+  Matrix<float> dataset(new CoordType[points.size() * ndim], points.size(), ndim);
+  Matrix<float> query(new CoordType[1], 1, 1);
+
+  int i = 0;
+  for (auto &&point : points)
+  {
+    dataset[i][0] = point[0];
+    dataset[i][1] = point[1];
+    // printf("%f,%f\n", dataset[i][0], dataset[i][1]);
+    i++;
+    //Fill matrix
+  }
+
+  query[0][0] = MAX_RANDOM_COORD / 2.0;
+  query[0][1] = MAX_RANDOM_COORD / 2.0;
+
+  Matrix<int> indices(new int[points.size() * ndim], points.size(), ndim);
+  Matrix<float> dists(new CoordType[points.size() * ndim], points.size(), ndim);
+
+  Index<L2<float>> index(dataset, flann::KDTreeIndexParams(4));
+  index.buildIndex();
+
+  // do a knn search, using 128 checks
+  int res = index.radiusSearch(query, indices, dists, 1000, flann::SearchParams(128));
+
+  if (_debug)
+  {
+    printf("RES %d\n", res);
+    Points result;
+    for (int i = 0; i < res; i++)
+    {
+      result.push_back(points[indices[i][0]]);
+    }
+
+    drawPoints(image, points, cv::Scalar(255, 0, 0));
+    cv::imshow("img", image);
+    cv::waitKey(0);
+
+    drawPoints(image, result, cv::Scalar(0, 255, 0));
+    cv::imshow("img", image);
+    cv::waitKey(0);
+  }
+
+  // cv::flann::IndexParams *ip;
+  // if (substring.compare("flann_brute") == 0)
+  // {
+  //   ip = new cv::flann::LinearIndexParams();
+  // }
+  // else if (substring.compare("flann_kdtree") == 0)
+  // {
+  //   ip = new cv::flann::KDTreeIndexParams(10);
+  // }
+  // else if (substring.compare("flann_lsh") == 0)
+  // {
+  //   ip = new cv::flann::LshIndexParams(20, 15, 2);
+  // }
+  // else if (substring.compare("flann_auto") == 0)
+  // {
+  //   ip = new cv::flann::AutotunedIndexParams();
+  // }
+  // else if (substring.compare("flann_composite") == 0)
+  // {
+  //   ip = new cv::flann::CompositeIndexParams();
+  // }
+
+  // else
+  // {
+  //   printf("ERORRO UNRECOGNIZED ALGO: %s\n", substring.c_str());
+  //   exit(0);
+  // }
+  // cv::flann::Index flann_index(features, *ip);
+  // double time_creation = deltaTime();
+
+  // CoordType cx = MAX_RANDOM_COORD / 2.0;
+  // CoordType cy = MAX_RANDOM_COORD / 2.0;
+  // unsigned int max_neighbours = points.size() * 10;
+  // cv::Mat query = (cv::Mat_<CoordType>(1, 2) << cx, cy);
+  // std::vector<int> indices; //neither assume type nor size here !
+  // std::vector<CoordType> dists;
+
+  // getTime();
+  // flann_index.radiusSearch(query, indices, dists, radius * radius, max_neighbours,
+  //                          cv::flann::SearchParams(128));
+  // double time_search = deltaTime();
+
+  // double vm, rss;
+  // process_mem_usage(vm, rss);
+  // double memory = rss;
+
+  // if (print_output)
+  // {
+  //   printResults("flann_kdtree", time_creation, time_search, memory);
+  // }
+
+  // if (_debug)
+  // {
+
+  //   Points result;
+  //   for (int i = 0; i < indices.size(); i++)
+  //   {
+  //     result.push_back(points[indices[i]]);
+  //   }
+  //   drawPoints(image, points, cv::Scalar(255, 0, 0));
+  //   cv::imshow("img", image);
+  //   cv::waitKey(0);
+
+  //   drawPoints(image, result, cv::Scalar(0, 255, 0));
+  //   cv::imshow("img", image);
+  //   cv::waitKey(0);
+  // }
+}
 /**
  * ##########
  */
@@ -315,7 +524,7 @@ int main(int argc, const char **argv)
 
   std::vector<std::vector<CoordType>> features = generateFeatures(N_POINTS);
 
-  cv::Mat image(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, Scalar(0, 0, 0));
+  cv::Mat image(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, cv::Scalar(0, 0, 0));
 
   computeDenseGrid(image, features, MAX_RANDOM_COORD / 4.0, sparsity, false);
   printf("%s %d %f %f ", algo.c_str(), N_POINTS, MAX_RANDOM_COORD, sparsity);
@@ -325,9 +534,19 @@ int main(int argc, const char **argv)
     computeDenseGrid(image, features, MAX_RANDOM_COORD / 4.0, sparsity, true);
   }
 
-  if (algo.compare("skigrid") == 0)
+  else if (algo.compare("skigrid") == 0)
   {
     computeSkigrid(image, features, MAX_RANDOM_COORD / 4.0, true);
+  }
+
+  else if (algo.find("flann") == 0)
+  {
+    computeFlann(image, features, MAX_RANDOM_COORD / 4.0, algo, true);
+  }
+
+  else if (algo.find("ann") == 0)
+  {
+    computeAnn(image, features, MAX_RANDOM_COORD / 4.0, algo, true);
   }
 }
 
@@ -356,7 +575,7 @@ int main2(int argc, char **argv)
   int N_POINTS = 300000;
   using namespace cv;
 
-  cv::Mat image(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, Scalar(0, 0, 0));
+  cv::Mat image(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, cv::Scalar(0, 0, 0));
 
   std::vector<cv::Point2f> features;
 

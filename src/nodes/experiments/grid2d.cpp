@@ -44,6 +44,17 @@
 
 struct sysinfo memInfo;
 
+template <class K, class V, int D = 3>
+class Skippa
+{
+public:
+  K index;
+  V data;
+};
+
+typedef int Index;
+typedef Skippa<Index, void *, 8> KNODE;
+
 struct QPoint
 {
   double coords[2];
@@ -103,8 +114,8 @@ typedef uint16_t WeightType;
 typedef Eigen::Vector2f PointType;
 typedef float CoordType;
 typedef skimap::VoxelDataMatrix<CoordType> VoxelData;
-typedef skimap::SkipListGrid<VoxelData, IndexType, CoordinateType> SkiGrid;
-typedef skimap::SkipListGrid<VoxelData, IndexType, CoordinateType>::Voxel2D Voxel2D;
+typedef skimap::SkipListGrid<VoxelData, IndexType, CoordinateType, 10, 10> SkiGrid;
+typedef skimap::SkipListGrid<VoxelData, IndexType, CoordinateType, 10, 10>::Voxel2D Voxel2D;
 
 SkiGrid *map;
 
@@ -185,7 +196,7 @@ void computeSkigrid(cv::Mat &image, Points &points, CoordType radius, bool print
 
   float map_resolution = 1;
   SkiGrid *map = new SkiGrid(map_resolution);
-  map->enableConcurrencyAccess();
+  map->enableConcurrencyAccess(true);
 
   getTime();
 #pragma omp parallel for
@@ -283,25 +294,35 @@ void computeDenseGrid(cv::Mat &image, Points &points, CoordType radius, float &s
 
   getTime();
   Points result;
-  CoordType dist;
-  for (int ix = min_ix; ix <= max_ix; ix++)
+
+#pragma omp parallel
   {
-    for (int iy = min_iy; iy <= max_iy; iy++)
+    Points result_private;
+
+#pragma omp for nowait
+    for (int ix = min_ix; ix <= max_ix; ix++)
     {
-      index = ix * grid_side + iy;
-      if (index > 0 && index < grid_side * grid_side)
+      for (int iy = min_iy; iy <= max_iy; iy++)
       {
-        for (int i = 0; i < grid[index].size(); i++)
+        int index = ix * grid_side + iy;
+        if (index > 0 && index < grid_side * grid_side)
         {
-          dist = distance(grid[index][i], center);
-          if (dist <= radius)
+          for (int i = 0; i < grid[index].size(); i++)
           {
-            result.push_back(grid[index][i]);
+            CoordType dist = distance(grid[index][i], center);
+            if (dist <= radius)
+            {
+              result_private.push_back(grid[index][i]);
+            }
           }
         }
       }
     }
+
+#pragma omp critical
+    result.insert(result.end(), result_private.begin(), result_private.end());
   }
+
   double time_search = deltaTime();
 
   double vm, rss;
@@ -396,111 +417,44 @@ void computeAnn(cv::Mat &image, Points &points, CoordType radius, std::string su
 }
 void computeFlann(cv::Mat &image, Points &points, CoordType radius, std::string substring, bool print_output)
 {
-  cv::Mat_<CoordType> features(0, 2);
+
   int ndim = 2;
-  using namespace flann;
-  Matrix<float> dataset(new CoordType[points.size() * ndim], points.size(), ndim);
-  Matrix<float> query(new CoordType[1], 1, 1);
+  // using namespace flann;
+  // Matrix<float> dataset(new CoordType[points.size() * ndim], points.size(), ndim);
+  // Matrix<float> query(new CoordType[1], 1, 1);
 
-  int i = 0;
-  for (auto &&point : points)
-  {
-    dataset[i][0] = point[0];
-    dataset[i][1] = point[1];
-    // printf("%f,%f\n", dataset[i][0], dataset[i][1]);
-    i++;
-    //Fill matrix
-  }
-
-  query[0][0] = MAX_RANDOM_COORD / 2.0;
-  query[0][1] = MAX_RANDOM_COORD / 2.0;
-
-  Matrix<int> indices(new int[points.size() * ndim], points.size(), ndim);
-  Matrix<float> dists(new CoordType[points.size() * ndim], points.size(), ndim);
-
-  Index<L2<float>> index(dataset, flann::KDTreeIndexParams(4));
-  index.buildIndex();
-
-  // do a knn search, using 128 checks
-  int res = index.radiusSearch(query, indices, dists, 1000, flann::SearchParams(128));
-
-  if (_debug)
-  {
-    printf("RES %d\n", res);
-    Points result;
-    for (int i = 0; i < res; i++)
-    {
-      result.push_back(points[indices[i][0]]);
-    }
-
-    drawPoints(image, points, cv::Scalar(255, 0, 0));
-    cv::imshow("img", image);
-    cv::waitKey(0);
-
-    drawPoints(image, result, cv::Scalar(0, 255, 0));
-    cv::imshow("img", image);
-    cv::waitKey(0);
-  }
-
-  // cv::flann::IndexParams *ip;
-  // if (substring.compare("flann_brute") == 0)
+  // int i = 0;
+  // for (auto &&point : points)
   // {
-  //   ip = new cv::flann::LinearIndexParams();
-  // }
-  // else if (substring.compare("flann_kdtree") == 0)
-  // {
-  //   ip = new cv::flann::KDTreeIndexParams(10);
-  // }
-  // else if (substring.compare("flann_lsh") == 0)
-  // {
-  //   ip = new cv::flann::LshIndexParams(20, 15, 2);
-  // }
-  // else if (substring.compare("flann_auto") == 0)
-  // {
-  //   ip = new cv::flann::AutotunedIndexParams();
-  // }
-  // else if (substring.compare("flann_composite") == 0)
-  // {
-  //   ip = new cv::flann::CompositeIndexParams();
+  //   dataset[i][0] = point[0];
+  //   dataset[i][1] = point[1];
+  //   // printf("%f,%f\n", dataset[i][0], dataset[i][1]);
+  //   i++;
+  //   //Fill matrix
   // }
 
-  // else
-  // {
-  //   printf("ERORRO UNRECOGNIZED ALGO: %s\n", substring.c_str());
-  //   exit(0);
-  // }
-  // cv::flann::Index flann_index(features, *ip);
-  // double time_creation = deltaTime();
+  // query[0][0] = MAX_RANDOM_COORD / 2.0;
+  // query[0][1] = MAX_RANDOM_COORD / 2.0;
 
-  // CoordType cx = MAX_RANDOM_COORD / 2.0;
-  // CoordType cy = MAX_RANDOM_COORD / 2.0;
-  // unsigned int max_neighbours = points.size() * 10;
-  // cv::Mat query = (cv::Mat_<CoordType>(1, 2) << cx, cy);
-  // std::vector<int> indices; //neither assume type nor size here !
-  // std::vector<CoordType> dists;
+  // Matrix<int> indices(new int[points.size() * ndim], points.size(), ndim);
+  // Matrix<float> dists(new CoordType[points.size() * ndim], points.size(), ndim);
 
-  // getTime();
-  // flann_index.radiusSearch(query, indices, dists, radius * radius, max_neighbours,
-  //                          cv::flann::SearchParams(128));
-  // double time_search = deltaTime();
-
-  // double vm, rss;
-  // process_mem_usage(vm, rss);
-  // double memory = rss;
-
-  // if (print_output)
-  // {
-  //   printResults("flann_kdtree", time_creation, time_search, memory);
-  // }
+  // printf("Buildin\n");
+  // Index<L2<float>> index(dataset, flann::LinearIndexParams());
+  // index.buildIndex();
+  // printf("Done\n");
+  // // do a knn search, using 128 checks
+  // int res = index.radiusSearch(query, indices, dists, radius * radius, flann::SearchParams(128));
 
   // if (_debug)
   // {
-
+  //   printf("RES %d\n", res);
   //   Points result;
-  //   for (int i = 0; i < indices.size(); i++)
+  //   for (int i = 0; i < res; i++)
   //   {
-  //     result.push_back(points[indices[i]]);
+  //     result.push_back(points[indices[i][0]]);
   //   }
+
   //   drawPoints(image, points, cv::Scalar(255, 0, 0));
   //   cv::imshow("img", image);
   //   cv::waitKey(0);
@@ -509,6 +463,87 @@ void computeFlann(cv::Mat &image, Points &points, CoordType radius, std::string 
   //   cv::imshow("img", image);
   //   cv::waitKey(0);
   // }
+
+  cv::Mat_<CoordType> features(points.size(), 2);
+  for (int i = 0; i < points.size(); i++)
+  {
+    features.at<CoordType>(i, 0) = points[i][0];
+    features.at<CoordType>(i, 1) = points[i][1];
+    // cv::Mat row = (cv::Mat_<CoordType>(1, 2) << point[0], point[1]);
+    // features.push_back(row);
+  }
+
+  cv::flann::IndexParams *ip;
+  if (substring.compare("flann_brute") == 0)
+  {
+    ip = new cv::flann::LinearIndexParams();
+  }
+  else if (substring.compare("flann_kdtree") == 0)
+  {
+    ip = new cv::flann::KDTreeIndexParams(2);
+  }
+  else if (substring.compare("flann_lsh") == 0)
+  {
+    ip = new cv::flann::LshIndexParams(20, 15, 2);
+  }
+  else if (substring.compare("flann_auto") == 0)
+  {
+    ip = new cv::flann::AutotunedIndexParams();
+  }
+  else if (substring.compare("flann_composite") == 0)
+  {
+    ip = new cv::flann::CompositeIndexParams();
+  }
+  else if (substring.compare("flann_kmeans") == 0)
+  {
+    ip = new cv::flann::KMeansIndexParams(32, 50);
+  }
+
+  else
+  {
+    printf("ERORRO UNRECOGNIZED ALGO: %s\n", substring.c_str());
+    exit(0);
+  }
+  cv::flann::Index flann_index(features, *ip);
+  double time_creation = deltaTime();
+
+  CoordType cx = MAX_RANDOM_COORD / 2.0;
+  CoordType cy = MAX_RANDOM_COORD / 2.0;
+  unsigned int max_neighbours = points.size() * 10;
+  cv::Mat query = (cv::Mat_<CoordType>(1, 2) << cx, cy);
+  std::vector<int> indices; //neither assume type nor size here !
+  std::vector<CoordType> dists;
+
+  getTime();
+  flann_index.radiusSearch(query, indices, dists, radius * radius, max_neighbours,
+                           cv::flann::SearchParams(points.size() * 10));
+  double time_search = deltaTime();
+
+  double vm, rss;
+  process_mem_usage(vm, rss);
+  double memory = rss;
+
+  if (print_output)
+  {
+    printResults("flann_kdtree", time_creation, time_search, memory);
+  }
+
+  if (_debug)
+  {
+
+    Points result;
+    for (int i = 0; i < indices.size(); i++)
+    {
+      result.push_back(points[indices[i]]);
+    }
+    drawPoints(image, points, cv::Scalar(255, 0, 0));
+    cv::imshow("img", image);
+    cv::waitKey(0);
+
+    drawPoints(image, result, cv::Scalar(0, 255, 0));
+    cv::imshow("img", image);
+    cv::waitKey(0);
+  }
 }
 /**
  * ##########
@@ -526,7 +561,7 @@ int main(int argc, const char **argv)
 
   cv::Mat image(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, cv::Scalar(0, 0, 0));
 
-  computeDenseGrid(image, features, MAX_RANDOM_COORD / 4.0, sparsity, false);
+  //computeDenseGrid(image, features, MAX_RANDOM_COORD / 4.0, sparsity, false);
   printf("%s %d %f %f ", algo.c_str(), N_POINTS, MAX_RANDOM_COORD, sparsity);
 
   if (algo.compare("dense") == 0)

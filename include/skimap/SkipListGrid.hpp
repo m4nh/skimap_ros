@@ -35,47 +35,6 @@ class SkipListGrid
 public:
   typedef GenericVoxel3D<V, D> Voxel2D;
 
-  /**
-       * Batch integration entry
-       */
-  struct IntegrationEntry
-  {
-    K x, y;
-    V *data;
-    int entry_depth;
-
-    IntegrationEntry(K x, K y, V *data, int max_depth = 3)
-        : x(x), y(y), data(data), entry_depth(max_depth) {}
-  };
-
-  /**
-       * Integration map for batch OMP integration
-       */
-  struct IntegrationMap
-  {
-    std::map<K, std::vector<IntegrationEntry>> map;
-    std::vector<K> map_keys;
-
-    IntegrationMap() {}
-
-    void addEntry(K x, K y, V *data, int max_depth = 3)
-    {
-      IntegrationEntry entry(x, y, data, max_depth);
-      if (map.find(x) == map.end())
-      {
-        map[x] = std::vector<IntegrationEntry>();
-        map_keys.push_back(x);
-      }
-      map[x].push_back(entry);
-    }
-
-    void clear()
-    {
-      map.clear();
-      map_keys.clear();
-    }
-  };
-
   typedef K Index;
   typedef SkipList<Index, V *, Y_DEPTH> Y_NODE;
   typedef SkipList<Index, Y_NODE *, X_DEPTH> X_NODE;
@@ -91,7 +50,7 @@ public:
       : _min_index_value(min_index), _max_index_value(max_index),
         _resolution_x(resolution_x), _resolution_y(resolution_y),
         _voxel_counter(0), _xlist_counter(0), _ylist_counter(0),
-        _bytes_counter(0), _batch_integration(false), _initialized(false),
+        _bytes_counter(0), _initialized(false),
         _self_concurrency_management(false)
   {
     initialize(_min_index_value, _max_index_value);
@@ -104,7 +63,7 @@ public:
         _max_index_value(std::numeric_limits<K>::max()),
         _resolution_x(resolution), _resolution_y(resolution), _voxel_counter(0),
         _xlist_counter(0), _ylist_counter(0), _bytes_counter(0),
-        _batch_integration(false), _initialized(false),
+        _initialized(false),
         _self_concurrency_management(false)
   {
     initialize(_min_index_value, _max_index_value);
@@ -116,7 +75,7 @@ public:
       : _min_index_value(std::numeric_limits<K>::min()),
         _max_index_value(std::numeric_limits<K>::max()), _resolution_x(0.01),
         _resolution_y(0.01), _voxel_counter(0), _xlist_counter(0),
-        _ylist_counter(0), _bytes_counter(0), _batch_integration(false),
+        _ylist_counter(0), _bytes_counter(0),
         _initialized(false), _self_concurrency_management(false) {}
 
   /**
@@ -323,17 +282,6 @@ public:
       return true;
     }
     return false;
-  }
-
-  /**
-       *
-       * @return
-       */
-  virtual bool startBatchIntegration()
-  {
-    _batch_integration = true;
-    _current_integration_map.clear();
-    return true;
   }
 
   /**
@@ -549,10 +497,8 @@ protected:
   int _xlist_counter;
   int _ylist_counter;
   long _bytes_counter;
-  bool _batch_integration;
   bool _initialized;
   bool _self_concurrency_management;
-  IntegrationMap _current_integration_map;
 
   // concurrency
   boost::mutex mutex_map_mutex;

@@ -171,6 +171,12 @@ target_link_libraries(grid2d
   /home/daniele/Downloads/ann_1.1.2/lib/libANN.a
   ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
+add_executable(kd_test src/nodes/experiments/kd_test.cpp)  
+target_link_libraries(kd_test 
+/home/daniele/Downloads/ann_1.1.2/lib/libANN.a
+${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
+  
 
 #########################
 # NODES

@@ -40,6 +40,11 @@
 #define MIN_RANDOM_COLOR 0.0
 double MAX_RANDOM_COORD = 500.0;
 double MIN_RANDOM_COORD = 0.0;
+const int DIM = 2;
+
+typedef float CoordinatesType;
+typedef skimap::VoxelDataMatrix<CoordinatesType> VoxelData;
+typedef int IndexType;
 
 float fRand(float fMin, float fMax)
 {
@@ -47,40 +52,82 @@ float fRand(float fMin, float fMax)
   return fMin + f * (fMax - fMin);
 }
 
+float distance(std::vector<CoordinatesType> cds1, std::vector<CoordinatesType> cds2)
+{
+  float d = 0.0;
+  for (int i = 0; i < cds1.size(); i++)
+  {
+    d += pow(cds1[i] - cds2[i], 2);
+  }
+  return sqrt(d);
+}
+
+bool checkPresence(std::vector<std::vector<CoordinatesType>> &search_data, std::vector<CoordinatesType> cds)
+{
+
+  for (int i = 0; i < search_data.size(); i++)
+  {
+
+    if (distance(search_data[i], cds) < 0.1)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 int main(int argc, char **argv)
 {
 
   srand(time(NULL));
 
-  typedef float DataType;
-  typedef int IndexType;
-  typedef float CoordinatesType;
-
-  skimap::KDSkipList<DataType, IndexType, CoordinatesType, 2> kd_skip_list(0.001);
+  skimap::KDSkipList<VoxelData, IndexType, CoordinatesType, DIM> kd_skip_list(0.01);
+  typedef skimap::KDSkipList<VoxelData, IndexType, CoordinatesType, DIM>::VoxelKD Voxel;
 
   cv::Mat image(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, cv::Scalar(0, 0, 0));
   cv::Mat image2(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, cv::Scalar(0, 0, 0));
 
-  for (int i = 0; i < 1000; i++)
+  std::vector<std::vector<CoordinatesType>> integration_data;
+
+  for (int i = 0; i < 5000000; i++)
   {
-    float x = fRand(MIN_RANDOM_COORD, MAX_RANDOM_COORD);
-    float y = fRand(MIN_RANDOM_COORD, MAX_RANDOM_COORD);
 
-    std::vector<CoordinatesType> cds{x, y};
+    std::vector<CoordinatesType> cds;
+    for (int d = 0; d < DIM; d++)
+    {
+      cds.push_back(fRand(MIN_RANDOM_COORD, MAX_RANDOM_COORD));
+    }
 
-    float d = 1;
-    kd_skip_list.integrateVoxel(cds, &d);
-    image.at<cv::Vec3b>(y, x) = cv::Vec3b(255, 0, 0);
-
-    // DataType *d = kd_skip_list.find(cds);
-
-    // printf("Chedk %f\n", x);
-    // if (d == NULL)
-    // {
-    //   printf("  Null\n");
-    // }
+    VoxelData voxel;
+    voxel.matrix.push_back(cds);
+    kd_skip_list.integrateVoxel(cds, &voxel);
+    integration_data.push_back(cds);
+    if (DIM == 2)
+    {
+      image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 255, 255);
+    }
   }
+
+  std::vector<Voxel> voxels;
+  kd_skip_list.fetchVoxels(voxels);
+
+  bool consistency = true;
+  for (int i = 0; i < voxels.size(); i++)
+  {
+    Voxel &v = voxels[i];
+    consistency &= checkPresence(integration_data, v.coordinates);
+    if (DIM == 2)
+    {
+      image2.at<cv::Vec3b>(v.coordinates[1], v.coordinates[0]) = cv::Vec3b(255, 255, 255);
+    }
+  }
+  if (consistency)
+  {
+    printf("Ski is good!\n");
+  }
+
   cv::imshow("img", image);
+  cv::imshow("img2", image2);
   cv::waitKey(0);
   printf("Ciao\n");
 }

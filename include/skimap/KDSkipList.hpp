@@ -16,7 +16,7 @@
 #include <limits>
 #include <map>
 #include <skimap/SkipList.hpp>
-#include <skimap/voxels/GenericVoxel3D.hpp>
+#include <skimap/voxels/GenericVoxelKD.hpp>
 #include <vector>
 
 namespace skimap
@@ -26,7 +26,7 @@ template <class V, class K, class D, int DIM, int DEPTH = 8>
 class KDSkipList
 {
   public:
-    typedef GenericVoxel3D<V, D> VoxelKD;
+    typedef GenericVoxelKD<V, D> VoxelKD;
 
     typedef K Index;
     typedef SkipList<Index, void *, DEPTH> KNODE;
@@ -253,33 +253,35 @@ class KDSkipList
             KNODE *current = _root_list;
             const Node *node = current->find(idx[0]);
 
-            int pointer = 1;
+            int pointer = 0;
             while (pointer < DIM)
             {
-                K prev_index = idx[pointer - 1];
-                K current_index = idx[pointer];
-
-                if (node != NULL)
+                K current_index = idx[(pointer) % idx.size()];
+                K next_index = idx[(pointer + 1) % idx.size()];
+                if (node == NULL)
                 {
                     if (pointer == DIM - 1)
                     {
-                        *((V *)node->value) = *((V *)node->value) + *data;
+                        node = current->insert(current_index, new V);
                     }
                     else
                     {
-                        node = reinterpret_cast<KNODE *>(node->value)->find(current_index);
+                        node = current->insert(current_index, new KNODE(_min_index_value, _max_index_value));
                     }
+                }
+
+                if (pointer < DIM - 1)
+                {
+                    current = reinterpret_cast<KNODE *>(node->value);
+                }
+
+                if (pointer == DIM - 1)
+                {
+                    *((V *)node->value) = *((V *)node->value) + *data;
                 }
                 else
                 {
-                    if (pointer == DIM - 1)
-                    {
-                        node = current->insert(prev_index, new V);
-                    }
-                    else
-                    {
-                        node = current->insert(prev_index, new KNODE(_min_index_value, _max_index_value));
-                    }
+                    node = reinterpret_cast<KNODE *>(node->value)->find(next_index);
                 }
 
                 pointer++;
@@ -299,6 +301,8 @@ class KDSkipList
            */
     virtual void fetchVoxels(std::vector<VoxelKD> &voxels)
     {
+        Indices idx(DIM);
+        fetchDimension(_root_list, idx, voxels, 0);
         //         voxels.clear();
         //         std::vector<typename KNODE::NodeType *> xnodes;
         //         _root_list->retrieveNodes(xnodes);
@@ -333,26 +337,31 @@ class KDSkipList
 
     void fetchDimension(KNODE *root, Indices idx, std::vector<VoxelKD> &voxels, int current_dim)
     {
-        if (current_dim < DIM)
+        if (current_dim < DIM - 1)
         {
-            std::vector<void *> temp_nodes;
-            root->retrieveNodes(temp_nodes);
-
-            for (int i = 0; i < temp_nodes.size(); i++)
+            std::vector<typename KNODE::NodeType *> temp_nodes;
+            if (root != NULL)
             {
-                idx[current_dim] = reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->key;
-                this->fetchDimension(reinterpret_cast<KNODE *>(temp_nodes[i]), idx, voxels, current_dim + 1);
+                root->retrieveNodes(temp_nodes);
+                for (int i = 0; i < temp_nodes.size(); i++)
+                {
+                    idx[current_dim] = reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->key;
+                    this->fetchDimension(reinterpret_cast<KNODE *>(temp_nodes[i]->value), idx, voxels, current_dim + 1);
+                }
             }
         }
         else
         {
-            std::vector<void *> temp_nodes;
+            std::vector<typename KNODE::NodeType *> temp_nodes;
             root->retrieveNodes(temp_nodes);
             for (int i = 0; i < temp_nodes.size(); i++)
             {
-                VoxelKD voxel;
-                voxel.data = *reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->value;
-                voxels.push_back(voxel);
+                idx[idx.size() - 1] = reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->key;
+                Coordinates cds(idx.size());
+                this->indexToCoordinates(idx, cds);
+                voxels.push_back(
+                    VoxelKD(
+                        cds, reinterpret_cast<V *>(reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->value)));
             }
         }
     }

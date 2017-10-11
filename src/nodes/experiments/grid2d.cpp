@@ -38,6 +38,8 @@
 #include <skimap/voxels/VoxelDataMatrix.hpp>
 
 #include <skimap/utils/ArgParse.hpp>
+//#include "kissrandom.h"
+//#include "annoylib.h"
 
 #define MAX_RANDOM_COLOR 1.0
 #define MIN_RANDOM_COLOR 0.0
@@ -188,6 +190,11 @@ void printResults(std::string name, double t_c, double t_s, double memory)
 {
   printf("%f %f %f", t_c, t_s, memory);
 }
+
+void computeAnnoy()
+{
+  //  AnnoyIndex<int, double, Euclidean, RandRandom> t = AnnoyIndex<int, double, Euclidean, RandRandom>(DIM);
+}
 /**
  * ##########
  */
@@ -199,6 +206,7 @@ void computeSkigrid(cv::Mat &image, Points &points, CoordType radius, bool print
   map->enableConcurrencyAccess(true);
 
   getTime();
+
 #pragma omp parallel for
   for (int i = 0; i < points.size(); i++)
   {

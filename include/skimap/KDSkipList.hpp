@@ -22,7 +22,7 @@
 namespace skimap
 {
 
-template <class V, class K, class D, int DIM, int DEPTH = 8>
+template <class V, class K, class D, int DEPTH = 8>
 class KDSkipList
 {
   public:
@@ -37,8 +37,9 @@ class KDSkipList
 
     /**
            */
-    KDSkipList(D resolution)
-        : _min_index_value(std::numeric_limits<K>::min()),
+    KDSkipList(int DIM, D resolution)
+        : DIM(DIM),
+          _min_index_value(std::numeric_limits<K>::min()),
           _max_index_value(std::numeric_limits<K>::max()),
           _resolution(resolution),
           _initialized(false),
@@ -72,7 +73,7 @@ class KDSkipList
     }
 
     /////
-    virtual bool isValidIndices(Indices idx)
+    virtual bool isValidIndices(Indices &idx)
     {
         if (idx.size() != DIM)
             return false;
@@ -299,50 +300,52 @@ class KDSkipList
            *
            * @param voxels
            */
-    virtual void fetchVoxels(std::vector<VoxelKD> &voxels)
+    virtual void fetchVoxels(std::vector<VoxelKD> &voxels, Indices min_idx = Indices(0), Indices max_idx = Indices(0))
     {
         Indices idx(DIM);
-        fetchDimension(_root_list, idx, voxels, 0);
-        //         voxels.clear();
-        //         std::vector<typename KNODE::NodeType *> xnodes;
-        //         _root_list->retrieveNodes(xnodes);
 
-        // #pragma omp parallel
-        //         {
-        //             std::vector<VoxelKD> voxels_private;
+        std::vector<typename KNODE::NodeType *> temp_nodes;
+        if (min_idx.size() == idx.size() && max_idx.size() == idx.size())
+        {
+            _root_list->retrieveNodesByRange(min_idx[0], max_idx[0], temp_nodes);
+        }
+        else
+        {
+            _root_list->retrieveNodes(temp_nodes);
+        }
 
-        // #pragma omp for nowait
-        //             for (int i = 0; i < xnodes.size(); i++)
-        //             {
-        //                 int pointer = 1;
-        //                 while (pointer < DIM)
-        //                 {
-        //                     std::vector<typename KNODE::NodeType *> next_nodex;
-        //                     reinterpret_cast<KNODE *>(xnodes[i]->value)->retrieveNodes(next_nodex);
-        //                 }
+#pragma omp parallel
+        {
+            std::vector<VoxelKD> voxels_private;
 
-        //                 for (int j = 0; j < ynodes.size(); j++)
-        //                 {
-        //                     ix = xnodes[i]->key;
-        //                     iy = ynodes[j]->key;
-        //                     indexToCoordinates(ix, iy, x, y);
-        //                     voxels_private.push_back(VoxelKD(x, y, ynodes[j]->value));
-        //                 }
-        //             }
+#pragma omp for nowait
+            for (int i = 0; i < temp_nodes.size(); i++)
+            {
+                Indices idx(DIM);
+                idx[0] = reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->key;
+                fetchDimension(reinterpret_cast<KNODE *>(temp_nodes[i]->value), idx, voxels_private, 1, min_idx, max_idx);
+            }
 
-        // #pragma omp critical
-        //             voxels.insert(voxels.end(), voxels_private.begin(), voxels_private.end());
-        //         }
+#pragma omp critical
+            voxels.insert(voxels.end(), voxels_private.begin(), voxels_private.end());
+        }
     }
 
-    void fetchDimension(KNODE *root, Indices idx, std::vector<VoxelKD> &voxels, int current_dim)
+    void fetchDimension(KNODE *root, Indices idx, std::vector<VoxelKD> &voxels, int current_dim, Indices min_idx = Indices(0), Indices max_idx = Indices(0))
     {
         if (current_dim < DIM - 1)
         {
             std::vector<typename KNODE::NodeType *> temp_nodes;
             if (root != NULL)
             {
-                root->retrieveNodes(temp_nodes);
+                if (min_idx.size() == idx.size() && max_idx.size() == idx.size())
+                {
+                    root->retrieveNodesByRange(min_idx[current_dim], max_idx[current_dim], temp_nodes);
+                }
+                else
+                {
+                    root->retrieveNodes(temp_nodes);
+                }
                 for (int i = 0; i < temp_nodes.size(); i++)
                 {
                     idx[current_dim] = reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->key;
@@ -353,7 +356,14 @@ class KDSkipList
         else
         {
             std::vector<typename KNODE::NodeType *> temp_nodes;
-            root->retrieveNodes(temp_nodes);
+            if (min_idx.size() == idx.size() && max_idx.size() == idx.size())
+            {
+                root->retrieveNodesByRange(min_idx[current_dim], max_idx[current_dim], temp_nodes);
+            }
+            else
+            {
+                root->retrieveNodes(temp_nodes);
+            }
             for (int i = 0; i < temp_nodes.size(); i++)
             {
                 idx[idx.size() - 1] = reinterpret_cast<typename KNODE::NodeType *>(temp_nodes[i])->key;
@@ -375,57 +385,46 @@ class KDSkipList
            * @param voxels
            * @param boxed
            */
-    virtual void radiusSearch(K cx, K cy, K radiusx, K radiusy,
+    virtual void radiusSearch(Indices center, K radius,
                               std::vector<VoxelKD> &voxels, bool boxed = false)
     {
-        //         voxels.clear();
-        //         std::vector<typename X_NODE::NodeType *> xnodes;
+        Indices min_idx(DIM);
+        Indices max_idx(DIM);
+        for (int i = 0; i < DIM; i++)
+        {
+            min_idx[i] = center[i] - radius;
+            max_idx[i] = center[i] + radius;
+        }
 
-        //         K ix_min = cx - radiusx;
-        //         K ix_max = cx + radiusx;
-        //         K iy_min = cy - radiusy;
-        //         K iy_max = cy + radiusy;
+        std::vector<VoxelKD> temp_voxels;
+        this->fetchVoxels(temp_voxels, min_idx, max_idx);
 
-        //         _root_list->retrieveNodesByRange(ix_min, ix_max, xnodes);
+        if (boxed)
+        {
+            voxels = temp_voxels;
+            return;
+        }
 
-        //         D rx, ry, radius;
-        //         D centerx, centery;
+        K squaredRadius = radius * radius;
+#pragma omp parallel
+        {
+            std::vector<VoxelKD> filtered_voxels;
 
-        //         indexToCoordinates(radiusx, radiusy, rx, ry);
-        //         indexToCoordinates(cx, cy, centerx, centery);
-        //         radius = (rx + ry) / 2.0;
+#pragma omp for nowait
+            for (int i = 0; i < temp_voxels.size(); i++)
+            {
+                Indices voxel_center(DIM);
+                coordinatesToIndex(temp_voxels[i].coordinates, voxel_center);
+                K d = indicesSquaredDistance(voxel_center, center);
+                if (d <= squaredRadius)
+                {
+                    filtered_voxels.push_back(temp_voxels[i]);
+                }
+            }
 
-        // #pragma omp parallel
-        //         {
-        //             std::vector<VoxelKD> voxels_private;
-
-        // #pragma omp for nowait
-        //             for (int i = 0; i < xnodes.size(); i++)
-        //             {
-        //                 K ix, iy;
-        //                 D x, y;
-        //                 D distance;
-        //                 std::vector<typename Y_NODE::NodeType *> ynodes;
-        //                 xnodes[i]->value->retrieveNodesByRange(iy_min, iy_max, ynodes);
-        //                 for (int j = 0; j < ynodes.size(); j++)
-        //                 {
-        //                     ix = xnodes[i]->key;
-        //                     iy = ynodes[j]->key;
-
-        //                     indexToCoordinates(ix, iy, x, y);
-        //                     if (!boxed)
-        //                     {
-        //                         distance = sqrt(pow(centerx - x, 2) + pow(centery - y, 2));
-        //                         if (distance > radius)
-        //                             continue;
-        //                     }
-        //                     voxels_private.push_back(VoxelKD(x, y, ynodes[j]->value));
-        //                 }
-        //             }
-
-        // #pragma omp critical
-        //             voxels.insert(voxels.end(), voxels_private.begin(), voxels_private.end());
-        //         }
+#pragma omp critical
+            voxels.insert(voxels.end(), filtered_voxels.begin(), filtered_voxels.end());
+        }
     }
 
     /**
@@ -439,17 +438,14 @@ class KDSkipList
            * @param voxels
            * @param boxed
            */
-    virtual void radiusSearch(D cx, D cy, D radiusx, D radiusy,
+    virtual void radiusSearch(Coordinates center, D radius,
                               std::vector<VoxelKD> &voxels, bool boxed = false)
     {
-        // K ix, iy;
-        // if (coordinatesToIndex(cx, cy, ix, iy))
-        // {
-        //     K iradiusx, iradiusy;
-        //     iradiusx = K(floor(radiusx / _resolution_x));
-        //     iradiusy = K(floor(radiusy / _resolution_y));
-        //     radiusSearch(ix, iy, iradiusx, iradiusy, voxels, boxed);
-        // }
+        Indices icenter(DIM);
+        K iradius;
+        coordinatesToIndex(center, icenter);
+        iradius = K(floor(radius / _resolution));
+        this->radiusSearch(icenter, iradius, voxels, boxed);
     }
 
     /**
@@ -516,6 +512,16 @@ class KDSkipList
         // }
     }
 
+    virtual K indicesSquaredDistance(const Indices &i1, const Indices &i2)
+    {
+        K distance(0);
+        for (int i = 0; i < i1.size(); i++)
+        {
+            distance += pow(i1[i] - i2[i], 2);
+        }
+        return distance;
+    }
+
     virtual void enableConcurrencyAccess(bool status = true)
     {
         this->_self_concurrency_management = status;
@@ -533,6 +539,7 @@ class KDSkipList
     D _resolution;
     bool _initialized;
     bool _self_concurrency_management;
+    int DIM;
 
     // concurrency
     boost::mutex mutex_map_mutex;

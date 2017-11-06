@@ -14,15 +14,14 @@ alt="paper video" width="240" height="180" border="10" /></a>
 
 
 The framework si wrapped in a ROS package to maximize portability but, since it is an *Header-Only* library,
-can be easily used elsewhere. This package contains also an implementation of **SlamDunk** algorithm described
-in the last section used to track camera 6-DOF pose.
+can be easily used elsewhere. 
 
 This package is equipped with a sample BAG file: 
 [tiago_lar.bag](https://drive.google.com/open?id=0B02158j5inr3Tm9nQjhIQ3Fua3c)
 . This bag was collected by means of a mobile robot with an head-mounting
 RGB-D camera. So it provides not only RGB-D frames but also a whole TF tree, including Odometry informations. 
 For this reason this bag can be used as source for **SkiMap** mapping using Odometry to track Camera pose or as source 
-for **SlamDunk+SkiMap** duet where Camera is tracked by Slam System.
+for **Slam+SkiMap** duet where Camera is tracked by the Slam System.
 
 ### Dependencies
 

@@ -268,10 +268,12 @@ class SkipListMap
     */
     virtual void unlockMap(K key)
     {
+        this->mutex_map_mutex.lock();
         if (this->mutex_map.count(key) > 0)
         {
             mutex_map[key]->unlock();
         }
+        this->mutex_map_mutex.unlock();
     }
 
     /**

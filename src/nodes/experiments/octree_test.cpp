@@ -32,9 +32,13 @@
 // OPENCV
 #include <opencv2/opencv.hpp>
 
+// PCL
+#include <pcl/point_cloud.h>
+#include <pcl/octree/octree_search.h>
+
 // Skimap
 #include <skimap/KDSkipList.hpp>
-#include <skimap/voxels/VoxelDataMatrix.hpp>
+#include <skimap/voxels/VoxelDataOccupancy.hpp>
 
 #define MAX_RANDOM_COLOR 1.0
 #define MIN_RANDOM_COLOR 0.0
@@ -46,7 +50,7 @@ int _debug;
 
 typedef float CoordinatesType;
 typedef std::vector<std::vector<CoordinatesType>> Points;
-typedef skimap::VoxelDataMatrix<CoordinatesType> VoxelData;
+typedef skimap::VoxelDataOccupancy<CoordinatesType> VoxelData;
 typedef int IndexType;
 
 auto _current_time = std::chrono::high_resolution_clock::now();
@@ -131,6 +135,53 @@ void process_mem_usage(double &vm_usage, double &resident_set)
 void printResults(std::string name, double t_c, double t_s, double memory)
 {
   printf(" %f %f %f", t_c, t_s, memory);
+}
+
+std::vector<int> computeOctree(Points &points, float resolution, CoordinatesType radius, std::string substring, bool print_output)
+{
+  typedef pcl::PointXYZ PointType;
+
+  pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
+  cloud->width = points.size();
+  cloud->height = 1;
+  cloud->points.resize(cloud->width * cloud->height);
+
+  for (int i = 0; i < points.size(); i++)
+  {
+    PointType p;
+    cloud->points[i].x = points[i][0];
+    cloud->points[i].y = points[i][1];
+    cloud->points[i].z = points[i][2];
+  }
+
+  getTime();
+  pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+
+  octree.setInputCloud(cloud);
+  octree.addPointsFromInputCloud();
+  double time_creation = deltaTime();
+
+  getTime();
+  std::vector<int> pointIdxRadiusSearch;
+  std::vector<float> pointRadiusSquaredDistance;
+  PointType searchPoint;
+  searchPoint.x = MAX_RANDOM_COORD / 2.0;
+  searchPoint.y = MAX_RANDOM_COORD / 2.0;
+  searchPoint.z = MAX_RANDOM_COORD / 2.0;
+
+  octree.radiusSearch(searchPoint, radius, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+  //printf("Found %d\n", int(pointIdxRadiusSearch.size()));
+  double time_search = deltaTime();
+
+  double vm, rss;
+  process_mem_usage(vm, rss);
+  double memory = rss;
+
+  if (print_output)
+  {
+    printResults(substring, time_creation, time_search, memory);
+  }
+  return pointIdxRadiusSearch;
 }
 
 std::vector<int> computeFlann(int ndim, Points &points, CoordinatesType radius, std::string substring, bool print_output)
@@ -257,10 +308,24 @@ int main(int argc, char **argv)
     }
     //printf("S %d\n", int(indices.size()));
   }
+  else if (algo.compare("octree") == 0 && DIM == 3)
+  {
+    std::vector<int> indices = computeOctree(integration_data, resolution, radius, algo, true);
+    if (_debug == 1)
+    {
+      for (int i = 0; i < indices.size(); i++)
+      {
+        std::vector<CoordinatesType> cds = integration_data[indices[i]];
+
+        image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 255, 255);
+      }
+    }
+    //printf("S %d\n", int(indices.size()));
+  }
   else if (algo.compare("kdskip") == 0)
   {
 
-    skimap::KDSkipList<VoxelData, IndexType, CoordinatesType> kd_skip_list(DIM, resolution);
+    skimap::KDSkipList<VoxelData, IndexType, CoordinatesType, 4> kd_skip_list(DIM, resolution);
     typedef skimap::KDSkipList<VoxelData, IndexType, CoordinatesType>::VoxelKD Voxel;
 
     kd_skip_list.enableConcurrencyAccess(true);
@@ -270,8 +335,7 @@ int main(int argc, char **argv)
 #pragma omp parallel for
     for (int i = 0; i < integration_data.size(); i++)
     {
-      VoxelData voxel;
-      voxel.matrix.push_back(integration_data[i]);
+      VoxelData voxel(1.0);
       kd_skip_list.integrateVoxel(integration_data[i], &voxel);
     }
     double time_creation = deltaTime();
@@ -298,18 +362,18 @@ int main(int argc, char **argv)
       bool consistency = true;
       for (int i = 0; i < voxels.size(); i++)
       {
-        Voxel &v = voxels[i];
-        for (int vi = 0; vi < v.data->matrix.size(); vi++)
-        {
-          // consistency &= checkPresence(integration_data, v.data->matrix[vi]);
-          std::vector<CoordinatesType> cds = v.data->matrix[vi];
-          image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 255, 255);
+        // Voxel &v = voxels[i];
+        // for (int vi = 0; vi < v.data->matrix.size(); vi++)
+        // {
+        //   // consistency &= checkPresence(integration_data, v.data->matrix[vi]);
+        //   std::vector<CoordinatesType> cds = v.data->matrix[vi];
+        //   image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 255, 255);
 
-          // if (!checkPresence(integration_data, v.data->matrix[vi]))
-          // {
-          //   printf("Fail\n");
-          // }
-        }
+        //   // if (!checkPresence(integration_data, v.data->matrix[vi]))
+        //   // {
+        //   //   printf("Fail\n");
+        //   // }
+        // }
       }
       if (consistency)
       {

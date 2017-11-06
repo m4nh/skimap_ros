@@ -165,17 +165,30 @@ include_directories(
 # GRID EXPERIMENTS
 #########################
 
-include_directories(/home/daniele/Downloads/ann_1.1.2/include)
+find_package(PCL REQUIRED)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
+set(ANN_INCLUDE_DIRS /home/daniele/work/workspace_cpp/ann_1.1.2/include)
+set(ANN_LIBRARIES /home/daniele/work/workspace_cpp/ann_1.1.2/lib/libANN.a)
+
+include_directories(${ANN_INCLUDE_DIRS})
 add_executable(grid2d src/nodes/experiments/grid2d.cpp)
 target_link_libraries(grid2d 
-  /home/daniele/Downloads/ann_1.1.2/lib/libANN.a
+  ${ANN_LIBRARIES}
   ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
-include_directories(/home/daniele/work/workspace_cpp/annoy/src)
 add_executable(kd_test src/nodes/experiments/kd_test.cpp)  
 target_link_libraries(kd_test 
-/home/daniele/Downloads/ann_1.1.2/lib/libANN.a
+${ANN_LIBRARIES}
 ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+  
+add_executable(octree_test src/nodes/experiments/octree_test.cpp)  
+target_link_libraries(octree_test 
+${ANN_LIBRARIES}
+${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
 
   
 

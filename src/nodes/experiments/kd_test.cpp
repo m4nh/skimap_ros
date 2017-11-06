@@ -241,7 +241,7 @@ int main(int argc, char **argv)
     integration_data.push_back(cds);
   }
 
-  printf("%s %d %d %f %f", algo.c_str(), DIM, N_POINTS, MAX_RANDOM_COORD, resolution);
+  printf("%s %d %d %f", algo.c_str(), DIM, N_POINTS, MAX_RANDOM_COORD);
 
   if (algo.find("flann") == 0)
   {
@@ -255,7 +255,7 @@ int main(int argc, char **argv)
         image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 255, 255);
       }
     }
-    //printf("S %d\n", int(indices.size()));
+    printf("S %d\n", int(indices.size()));
   }
   else if (algo.compare("kdskip") == 0)
   {
@@ -326,5 +326,5 @@ int main(int argc, char **argv)
   //cv::imshow("img", image);
   //cv::imshow("img2", image2);
   //cv::waitKey(0);
-  //printf("\n");
+  printf("\n");
 }

@@ -5,7 +5,7 @@ import os
 import csv
 from plotutils import Bench
 
-folder = "/home/daniele/work/ros/skimap_ws/src/skimap_ros/src/nodes/experiments/skimap_grid_test_python/matlab/bench_dimensions"
+folder = "/home/daniele/work/ros/skimap_ws/src/skimap_ros/src/nodes/experiments/skimap_grid_test_python/matlab/bench_octree_points"
 
 files = glob.glob(os.path.join(folder, "*.csv"))
 
@@ -22,7 +22,7 @@ for f in files:
 
 benchs.sort(key=lambda x: x.name)
 
-x_data = benchs[0].getDataByName('DIMENSIONS')
+x_data = benchs[0].getDataByName('POINTS')
 
 for i in range(0, len(benchs)):
     y_data = benchs[i].getDataByName('TIME_RADIUS_SEARCH')

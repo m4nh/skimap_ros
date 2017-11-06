@@ -38,6 +38,7 @@
 
 // Skimap
 #include <skimap/KDSkipList.hpp>
+#include <skimap/SkiMap.hpp>
 #include <skimap/voxels/VoxelDataOccupancy.hpp>
 
 #define MAX_RANDOM_COLOR 1.0
@@ -146,6 +147,7 @@ std::vector<int> computeOctree(Points &points, float resolution, CoordinatesType
   cloud->height = 1;
   cloud->points.resize(cloud->width * cloud->height);
 
+#pragma omp parallel for
   for (int i = 0; i < points.size(); i++)
   {
     PointType p;
@@ -322,10 +324,70 @@ int main(int argc, char **argv)
     }
     //printf("S %d\n", int(indices.size()));
   }
+  else if (algo.compare("skimap") == 0)
+  {
+
+    skimap::SkiMap<VoxelData, IndexType, CoordinatesType> kd_skip_list(DIM, resolution);
+    typedef skimap::SkiMap<VoxelData, IndexType, CoordinatesType>::Voxel3D Voxel;
+
+    kd_skip_list.enableConcurrencyAccess(true);
+
+    getTime();
+
+#pragma omp parallel for
+    for (int i = 0; i < integration_data.size(); i++)
+    {
+      VoxelData voxel(1.0);
+      kd_skip_list.integrateVoxel(integration_data[i][0],integration_data[i][1],integration_data[i][2], &voxel);
+    }
+    double time_creation = deltaTime();
+
+    std::vector<CoordinatesType> radius_center(DIM);
+    for (int i = 0; i < DIM; i++)
+    {
+      radius_center[i] = MAX_RANDOM_COORD / 2.0;
+    }
+
+    getTime();
+    std::vector<Voxel> voxels;
+    kd_skip_list.radiusSearch(radius_center[0],radius_center[1],radius_center[2], radius, radius,radius,voxels);
+    //printf("FOund: %d\n",int(voxels.size()));
+    double time_search = deltaTime();
+
+    double vm, rss;
+    process_mem_usage(vm, rss);
+    double memory = rss;
+
+    printResults(algo, time_creation, time_search, memory);
+
+    if (_debug == 1)
+    {
+      bool consistency = true;
+      for (int i = 0; i < voxels.size(); i++)
+      {
+        // Voxel &v = voxels[i];
+        // for (int vi = 0; vi < v.data->matrix.size(); vi++)
+        // {
+        //   // consistency &= checkPresence(integration_data, v.data->matrix[vi]);
+        //   std::vector<CoordinatesType> cds = v.data->matrix[vi];
+        //   image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 255, 255);
+
+        //   // if (!checkPresence(integration_data, v.data->matrix[vi]))
+        //   // {
+        //   //   printf("Fail\n");
+        //   // }
+        // }
+      }
+      if (consistency)
+      {
+        printf("Ski is good!\n");
+      }
+    }
+  }
   else if (algo.compare("kdskip") == 0)
   {
 
-    skimap::KDSkipList<VoxelData, IndexType, CoordinatesType, 4> kd_skip_list(DIM, resolution);
+    skimap::KDSkipList<VoxelData, IndexType, CoordinatesType, 8> kd_skip_list(DIM, resolution);
     typedef skimap::KDSkipList<VoxelData, IndexType, CoordinatesType>::VoxelKD Voxel;
 
     kd_skip_list.enableConcurrencyAccess(true);

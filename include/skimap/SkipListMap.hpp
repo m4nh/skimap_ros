@@ -267,11 +267,14 @@ class SkipListMap
     * @return 
     */
     virtual void unlockMap(K key)
-    {
+    {   
+        this->mutex_map_mutex.lock();
         if (this->mutex_map.count(key) > 0)
         {
             mutex_map[key]->unlock();
         }
+        this->mutex_map_mutex.unlock();
+        
     }
 
     /**
@@ -312,6 +315,7 @@ class SkipListMap
             {
                 if (this->hasConcurrencyAccess())
                     this->lockMap(ix);
+
                 const typename X_NODE::NodeType *ylist = _root_list->find(ix);
                 if (ylist == NULL)
                 {

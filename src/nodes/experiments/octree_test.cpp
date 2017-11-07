@@ -327,7 +327,7 @@ int main(int argc, char **argv)
   else if (algo.compare("skimap") == 0)
   {
 
-    skimap::SkiMap<VoxelData, IndexType, CoordinatesType> kd_skip_list(DIM, resolution);
+    skimap::SkiMap<VoxelData, IndexType, CoordinatesType,16,16,16> kd_skip_list( resolution);
     typedef skimap::SkiMap<VoxelData, IndexType, CoordinatesType>::Voxel3D Voxel;
 
     kd_skip_list.enableConcurrencyAccess(true);
@@ -337,7 +337,7 @@ int main(int argc, char **argv)
 #pragma omp parallel for
     for (int i = 0; i < integration_data.size(); i++)
     {
-      VoxelData voxel(1.0);
+           VoxelData voxel(1.0);
       kd_skip_list.integrateVoxel(integration_data[i][0],integration_data[i][1],integration_data[i][2], &voxel);
     }
     double time_creation = deltaTime();

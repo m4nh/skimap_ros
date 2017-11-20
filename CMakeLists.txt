@@ -189,6 +189,11 @@ target_link_libraries(octree_test
 ${ANN_LIBRARIES}
 ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
+add_executable(debug src/nodes/experiments/debug.cpp)  
+target_link_libraries(debug 
+${ANN_LIBRARIES}
+${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
 
   
 

@@ -13,6 +13,33 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <boost/thread.hpp>
+#include <boost/atomic.hpp>
+
+class spinlock
+{
+  private:
+    typedef enum { Locked,
+                   Unlocked } LockState;
+    boost::atomic<LockState> state_;
+
+  public:
+    spinlock() : state_(Unlocked) {}
+
+    void lock()
+    {
+        while (state_.exchange(Locked, boost::memory_order_acquire) == Locked)
+        {
+            /* busy-wait */
+        }
+    }
+    void unlock()
+    {
+        state_.store(Unlocked, boost::memory_order_release);
+    }
+};
+
+typedef spinlock Lock;
 
 namespace skimap
 {
@@ -99,8 +126,9 @@ class SkipListDense
                                           min_key_(min_key), max_value_(max_key), size_(0), last_(0)
     {
         this->key_sizes = max_key - min_key;
-        this->_dense_nodes = new NodeType[this->key_sizes];
-
+        this->_dense_nodes = new NodeType *[this->key_sizes];
+        this->_mutex_array = new Lock[this->key_sizes];
+        this->empty();
         // header_node_ = new NodeType(min_key_);
         // tail_node_ = new NodeType(max_value_);
         // for (int i = 1; i <= MAXLEVEL; i++)
@@ -125,11 +153,33 @@ class SkipListDense
         // delete tail_node_;
     }
 
-    K _convertKey(K key)
+    long _convertKey(K key)
     {
-        return key + this->min_key_;
+        return key - this->min_key_;
     }
 
+    bool checkInnerKey(long key)
+    {
+        return key >= 0 && key < this->key_sizes;
+    }
+
+    void lock(K key)
+    {
+        long inner_key = _convertKey(key);
+        if (checkInnerKey(inner_key))
+        {
+            this->_mutex_array[inner_key].lock();
+        }
+    }
+
+    void unlock(K key)
+    {
+        long inner_key = _convertKey(key);
+        if (checkInnerKey(inner_key))
+        {
+            this->_mutex_array[inner_key].unlock();
+        }
+    }
     /**
      * Inserts new KEY,VALUE in the SkipListDense.
      * @param search_key searching Key for insertion.
@@ -138,56 +188,19 @@ class SkipListDense
      */
     NodeType *insert(K search_key, V new_value)
     {
-        K inner_key = _convertKey(searchKey);
-        NodeType node _dense_nodes[inner_key];
+        long inner_key = _convertKey(search_key);
+        if (!checkInnerKey(inner_key))
+            return NULL;
 
-
-        SkipListDenseNode<K, V, MAXLEVEL> *update[MAXLEVEL];
-        NodeType *curr_node = header_node_;
-        for (int level = max_current_level_; level >= 1; level--)
+        if (_dense_nodes[inner_key] == NULL)
         {
-            while (curr_node->forwards[level]->key < search_key)
-            {
-                curr_node = curr_node->forwards[level];
-            }
-            update[level] = curr_node;
-        }
-        curr_node = curr_node->forwards[1];
-        if (curr_node->key == search_key)
-        {
-            curr_node->value = new_value;
+            _dense_nodes[inner_key] = new NodeType(search_key, new_value);
         }
         else
         {
-            int new_level = randomLevel();
-            if (new_level > max_current_level_)
-            {
-                for (int level = max_current_level_ + 1; level <= new_level; level++)
-                {
-                    update[level] = header_node_;
-                }
-                max_current_level_ = new_level;
-            }
-            curr_node = new NodeType(search_key, new_value);
-            size_++;
-            for (int lv = 1; lv <= new_level; lv++)
-            {
-                curr_node->forwards[lv] = update[lv]->forwards[lv];
-                update[lv]->forwards[lv] = curr_node;
-            }
-            if (getSize() <= 1)
-            {
-                last_ = search_key;
-            }
-            else
-            {
-                if (search_key > last_)
-                {
-                    last_ = search_key;
-                }
-            }
+            _dense_nodes[inner_key]->value = new_value;
         }
-        return curr_node;
+        return _dense_nodes[inner_key];
     }
 
     /**
@@ -196,34 +209,12 @@ class SkipListDense
      */
     void erase(K search_key)
     {
-        SkipListDenseNode<K, V, MAXLEVEL> *update[MAXLEVEL];
-        NodeType *curr_node = header_node_;
-        for (int level = max_current_level_; level >= 1; level--)
+        long inner_key = _convertKey(search_key);
+        if (!checkInnerKey(inner_key))
+            return;
+        if (_dense_nodes[inner_key] != NULL)
         {
-            while (curr_node->forwards[level]->key < search_key)
-            {
-                curr_node = curr_node->forwards[level];
-            }
-            update[level] = curr_node;
-        }
-        curr_node = curr_node->forwards[1];
-        if (curr_node->key == search_key)
-        {
-            for (int lv = 1; lv <= max_current_level_; lv++)
-            {
-                if (update[lv]->forwards[lv] != curr_node)
-                {
-                    break;
-                }
-                update[lv]->forwards[lv] = curr_node->forwards[lv];
-            }
-            delete curr_node;
-            size_--;
-            // update the max level
-            while (max_current_level_ > 1 && header_node_->forwards[max_current_level_] == NULL)
-            {
-                max_current_level_--;
-            }
+            delete _dense_nodes[inner_key];
         }
     }
 
@@ -234,23 +225,12 @@ class SkipListDense
      */
     const NodeType *find(K search_key)
     {
-        NodeType *curr_node = header_node_;
-        for (int level = max_current_level_; level >= 1; level--)
-        {
-            while (curr_node->forwards[level]->key < search_key)
-            {
-                curr_node = curr_node->forwards[level];
-            }
-        }
-        curr_node = curr_node->forwards[1];
-        if (curr_node->key == search_key)
-        {
-            return curr_node;
-        }
-        else
+        long inner_key = _convertKey(search_key);
+        if (!checkInnerKey(inner_key))
         {
             return NULL;
         }
+        return _dense_nodes[inner_key];
     }
 
     /**
@@ -262,23 +242,20 @@ class SkipListDense
      */
     NodeType *findNearest(K search_key, bool previous = false)
     {
-        NodeType *curr_node = header_node_;
-        for (int level = max_current_level_; level >= 1; level--)
+        long inner_key = _convertKey(search_key);
+        int step = previous ? -1 : 1;
+        inner_key = inner_key + step;
+        if (!checkInnerKey(inner_key))
+            return NULL;
+        NodeType *node = _dense_nodes[inner_key];
+        while (node == NULL && checkInnerKey(inner_key))
         {
-            while (curr_node->forwards[level]->key < search_key)
-            {
-                curr_node = curr_node->forwards[level];
-            }
+            inner_key = inner_key + step;
+            if (!checkInnerKey(inner_key))
+                return NULL;
+            node = _dense_nodes[inner_key];
         }
-        if (previous)
-        {
-            return curr_node;
-        }
-        else
-        {
-            curr_node = curr_node->forwards[1];
-            return curr_node;
-        }
+        return node;
     }
 
     /**
@@ -286,7 +263,10 @@ class SkipListDense
      */
     bool empty() const
     {
-        return (header_node_->forwards[1] == tail_node_);
+        for (int i = 0; i < this->key_sizes; i++)
+        {
+            this->_dense_nodes[i] = NULL;
+        }
     }
 
     /**
@@ -294,14 +274,15 @@ class SkipListDense
      */
     std::string toString()
     {
-        std::stringstream sstr;
+        /*std::stringstream sstr;
         NodeType *curr_node = header_node_->forwards[1];
         while (curr_node != tail_node_)
         {
             sstr << "(" << curr_node->key << "," << curr_node->value << ")" << std::endl;
             curr_node = curr_node->forwards[1];
         }
-        return sstr.str();
+        return sstr.str();*/
+        return "";
     }
 
     /**
@@ -310,12 +291,14 @@ class SkipListDense
      */
     void retrieveNodes(std::vector<NodeType *> &nodes)
     {
+
         nodes.clear();
-        NodeType *curr_node = header_node_->forwards[1];
-        while (curr_node != tail_node_)
+        for (int i = 0; i < this->key_sizes; i++)
         {
-            nodes.push_back(curr_node);
-            curr_node = curr_node->forwards[1];
+            if (this->_dense_nodes[i] != NULL)
+            {
+                nodes.push_back(this->_dense_nodes[i]);
+            }
         }
     }
 
@@ -327,15 +310,7 @@ class SkipListDense
      */
     void retrieveNodes(std::vector<NodeType *> &nodes, NodeType *start, K end_key)
     {
-        nodes.clear();
-        NodeType *curr_node = start;
-        while (curr_node != tail_node_)
-        {
-            nodes.push_back(curr_node);
-            if (curr_node->key >= end_key)
-                return;
-            curr_node = curr_node->forwards[1];
-        }
+        printf("NOt implemented!!\n");
     }
 
     /**
@@ -346,12 +321,19 @@ class SkipListDense
      */
     void retrieveNodesByRange(K min_key, K max_key, std::vector<NodeType *> &nodes)
     {
-        NodeType *start = findNearest(min_key, true);
-        if (start != NULL && start->key == min_key_)
+        nodes.clear();
+        long start = _convertKey(min_key);
+        long end = _convertKey(max_key);
+        for (int i = start; i <= end; i++)
         {
-            start = start->forwards[1];
+            if (checkInnerKey(i))
+            {
+                if (this->_dense_nodes[i] != NULL)
+                {
+                    nodes.push_back(this->_dense_nodes[i]);
+                }
+            }
         }
-        retrieveNodes(nodes, start, max_key);
     }
 
     /**
@@ -359,7 +341,14 @@ class SkipListDense
      */
     const NodeType *first()
     {
-        return header_node_->forwards[1];
+        for (int i = 0; i < this->key_sizes; i++)
+        {
+            if (this->_dense_nodes[i] != NULL)
+            {
+                return this->_dense_nodes[i];
+            }
+        }
+        return NULL;
     }
 
     /**
@@ -368,15 +357,14 @@ class SkipListDense
      */
     const NodeType *last()
     {
-        NodeType *curr_node = header_node_;
-        for (int level = max_current_level_; level >= 1; level--)
+        for (int i = this->key_sizes - 1; i >= 0; i--)
         {
-            while (curr_node->forwards[level]->key < max_value_)
+            if (this->_dense_nodes[i] != NULL)
             {
-                curr_node = curr_node->forwards[level];
+                return this->_dense_nodes[i];
             }
         }
-        return curr_node;
+        return NULL;
     }
 
     /**
@@ -423,13 +411,14 @@ class SkipListDense
 
     K min_key_;
     K max_value_;
-    int key_sizes;
+    long key_sizes;
     K last_;
     int max_current_level_;
     int size_;
     SkipListDenseNode<K, V, MAXLEVEL> *header_node_;
     SkipListDenseNode<K, V, MAXLEVEL> *tail_node_;
-    NodeType *_dense_nodes;
+    NodeType **_dense_nodes;
+    Lock *_mutex_array;
 };
 }
 

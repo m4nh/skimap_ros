@@ -313,15 +313,15 @@ class SkipListMapV2
             }
             else
             {
-                if (this->hasConcurrencyAccess())
-                    this->lockMap(ix);
-
+                //if (this->hasConcurrencyAccess())
+                this->_root_list->lock(ix);
                 const typename X_NODE::NodeType *ylist = _root_list->find(ix);
                 if (ylist == NULL)
                 {
                     ylist = _root_list->insert(ix, new Y_NODE(_min_index_value, _max_index_value));
                     _bytes_counter += sizeof(typename X_NODE::NodeType) + sizeof(Y_NODE);
                 }
+
                 const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
                 if (zlist == NULL)
                 {
@@ -338,8 +338,8 @@ class SkipListMapV2
                 {
                     *(voxel->value) = *(voxel->value) + *data;
                 }
-                if (this->hasConcurrencyAccess())
-                    this->unlockMap(ix);
+                //if (this->hasConcurrencyAccess())
+                this->_root_list->unlock(ix);
             }
             return true;
         }

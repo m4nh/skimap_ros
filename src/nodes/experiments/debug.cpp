@@ -53,7 +53,7 @@ int _debug;
 typedef float CoordinatesType;
 typedef std::vector<std::vector<CoordinatesType>> Points;
 typedef skimap::VoxelDataOccupancy<CoordinatesType> VoxelData;
-typedef int IndexType;
+typedef short IndexType;
 
 auto _current_time = std::chrono::high_resolution_clock::now();
 auto getTime()
@@ -273,7 +273,14 @@ int main(int argc, char **argv)
   std::string algo(argv[6]);
   _debug = atoi(argv[7]);
 
-  srand(time(NULL));
+  if (_debug)
+  {
+    srand(0);
+  }
+  else
+  {
+    srand(time(NULL));
+  }
 
   cv::Mat image(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, cv::Scalar(0, 0, 0));
   cv::Mat image2(MAX_RANDOM_COORD, MAX_RANDOM_COORD, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -325,11 +332,11 @@ int main(int argc, char **argv)
     }
     //printf("S %d\n", int(indices.size()));
   }
-  else if (algo.find("skimap") == 0)
+  else if (algo.compare("skimap") == 0)
   {
 
-    typedef skimap::SkipListMapV2<VoxelData, IndexType, CoordinatesType,16,16,16> MAP;
-    MAP kd_skip_list( resolution);
+    typedef skimap::SkiMap<VoxelData, IndexType, CoordinatesType, 16, 16, 16> MAP;
+    MAP kd_skip_list(resolution);
     typedef MAP::Voxel3D Voxel;
 
     kd_skip_list.enableConcurrencyAccess(true);
@@ -339,8 +346,9 @@ int main(int argc, char **argv)
 #pragma omp parallel for
     for (int i = 0; i < integration_data.size(); i++)
     {
-           VoxelData voxel(1.0);
-      kd_skip_list.integrateVoxel(integration_data[i][0],integration_data[i][1],integration_data[i][2], &voxel);
+      VoxelData voxel(1.0);
+      //printf("Integrating: %f,%f,%f\n", integration_data[i][0], integration_data[i][1], integration_data[i][2]);
+      kd_skip_list.integrateVoxel(integration_data[i][0], integration_data[i][1], integration_data[i][2], &voxel);
     }
     double time_creation = deltaTime();
 
@@ -352,7 +360,7 @@ int main(int argc, char **argv)
 
     getTime();
     std::vector<Voxel> voxels;
-    kd_skip_list.radiusSearch(radius_center[0],radius_center[1],radius_center[2], radius, radius,radius,voxels);
+    kd_skip_list.radiusSearch(radius_center[0], radius_center[1], radius_center[2], radius, radius, radius, voxels);
     //printf("FOund: %d\n",int(voxels.size()));
     double time_search = deltaTime();
 
@@ -364,6 +372,7 @@ int main(int argc, char **argv)
 
     if (_debug == 1)
     {
+      printf(" Found: %d ", int(voxels.size()));
       bool consistency = true;
       for (int i = 0; i < voxels.size(); i++)
       {
@@ -386,6 +395,59 @@ int main(int argc, char **argv)
       }
     }
   }
+  else if (algo.find("skimap2") == 0)
+  {
+
+    //printf("Random %d\n", rand() % 1000);
+    typedef skimap::SkipListMapV2<VoxelData, IndexType, CoordinatesType, 16, 16, 16> MAP;
+    MAP kd_skip_list(resolution);
+    typedef MAP::Voxel3D Voxel;
+
+    kd_skip_list.enableConcurrencyAccess(true);
+
+    getTime();
+
+#pragma omp parallel for
+    for (int i = 0; i < integration_data.size(); i++)
+    {
+      VoxelData voxel(1.0);
+      //printf("Integrating: %f,%f,%f\n", integration_data[i][0], integration_data[i][1], integration_data[i][2]);
+      kd_skip_list.integrateVoxel(integration_data[i][0], integration_data[i][1], integration_data[i][2], &voxel);
+    }
+    double time_creation = deltaTime();
+
+    std::vector<CoordinatesType> radius_center(DIM);
+    for (int i = 0; i < DIM; i++)
+    {
+      radius_center[i] = MAX_RANDOM_COORD / 2.0;
+    }
+
+    getTime();
+    std::vector<Voxel> voxels;
+    kd_skip_list.radiusSearch(radius_center[0], radius_center[1], radius_center[2], radius, radius, radius, voxels);
+    //printf("FOund: %d\n",int(voxels.size()));
+    double time_search = deltaTime();
+
+    double vm, rss;
+    process_mem_usage(vm, rss);
+    double memory = rss;
+
+    printResults(algo, time_creation, time_search, memory);
+
+    if (_debug == 1)
+    {
+      printf(" Found: %d ", int(voxels.size()));
+      bool consistency = true;
+      for (int i = 0; i < voxels.size(); i++)
+      {
+      }
+      if (consistency)
+      {
+        printf("Ski is good!\n");
+      }
+    }
+  }
+
   else if (algo.compare("kdskip") == 0)
   {
 
@@ -457,40 +519,38 @@ int main(int argc, char **argv)
   //printf("\n");
 }
 
-
-
-typedef skimap::SkipList<int,float*> SList;
+typedef skimap::SkipList<int, float *> SList;
 typedef SList::NodeType Node;
 
 int main_old(int argc, char **argv)
-{ 
-  
+{
 
-  SList list(-30000,3000);
-  
+  SList list(-30000, 3000);
+
   srand(0);
   int N = 1000000;
   float resolution = 0.01;
 
   getTime();
   //#pragma omp parallel for
-  for(int i = 0; i < N; i++){
-    float x = 10.0*(rand()%5000)/5000.0-10.0*(rand()%5000)/5000.0;
-    int ix = x/resolution;
+  for (int i = 0; i < N; i++)
+  {
+    float x = 10.0 * (rand() % 5000) / 5000.0 - 10.0 * (rand() % 5000) / 5000.0;
+    int ix = x / resolution;
     //printf("%d : %f -> %d\n",i,x,ix);
-    const Node* node = list.find(ix);
-    if(node==NULL){
-      list.insert(ix,new float(0.0));
-    }else{
+    const Node *node = list.find(ix);
+    if (node == NULL)
+    {
+      list.insert(ix, new float(0.0));
+    }
+    else
+    {
       *(node->value) += 1.0;
     }
   }
-  printf("Time: %f\n",deltaTime());
+  printf("Time: %f\n", deltaTime());
 
-  
-  std::vector<Node*> nodes;
+  std::vector<Node *> nodes;
   list.retrieveNodes(nodes);
-  printf("Output: %d\n",int(nodes.size()));
-  
+  printf("Output: %d\n", int(nodes.size()));
 }
-

@@ -6,8 +6,8 @@
  * please write to: d.degregorio@unibo.it
  */
 
-#ifndef SKIPLISTMAP_HPP
-#define SKIPLISTMAP_HPP
+#ifndef SkipListMapV2_HPP
+#define SkipListMapV2_HPP
 
 #include <limits>
 #include <fstream>
@@ -17,9 +17,10 @@
 #include <omp.h>
 #include <boost/thread.hpp>
 #include <skimap/voxels/GenericVoxel3D.hpp>
+#include <skimap/SkipListDense.hpp>
 #include <skimap/SkipList.hpp>
 
-#define SKIPLISTMAP_MAX_DEPTH 16
+#define SkipListMapV2_MAX_DEPTH 16
 
 namespace skimap
 {
@@ -30,7 +31,7 @@ namespace skimap
      * @param max_index
      */
 template <class V, class K, class D, int X_DEPTH = 8, int Y_DEPTH = 8, int Z_DEPTH = 8>
-class SkipListMap
+class SkipListMapV2
 {
   public:
     typedef GenericVoxel3D<V, D> Voxel3D;
@@ -82,7 +83,7 @@ class SkipListMap
     typedef K Index;
     typedef SkipList<Index, V *, Z_DEPTH> Z_NODE;
     typedef SkipList<Index, Z_NODE *, Y_DEPTH> Y_NODE;
-    typedef SkipList<Index, Y_NODE *, X_DEPTH> X_NODE;
+    typedef SkipListDense<Index, Y_NODE *, X_DEPTH> X_NODE;
 
     /**
          * 
@@ -92,34 +93,34 @@ class SkipListMap
          * @param resolution_y
          * @param resolution_z
          */
-    SkipListMap(K min_index, K max_index, D resolution_x, D resolution_y, D resolution_z) : _min_index_value(min_index), _max_index_value(max_index),
-                                                                                            _resolution_x(resolution_x), _resolution_y(resolution_y), _resolution_z(resolution_z),
-                                                                                            _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
+    SkipListMapV2(K min_index, K max_index, D resolution_x, D resolution_y, D resolution_z) : _min_index_value(min_index), _max_index_value(max_index),
+                                                                                              _resolution_x(resolution_x), _resolution_y(resolution_y), _resolution_z(resolution_z),
+                                                                                              _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
     {
         initialize(_min_index_value, _max_index_value);
     }
 
     /**
          */
-    SkipListMap(D resolution) : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
-                                _resolution_x(resolution), _resolution_y(resolution), _resolution_z(resolution),
-                                _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
+    SkipListMapV2(D resolution) : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
+                                  _resolution_x(resolution), _resolution_y(resolution), _resolution_z(resolution),
+                                  _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
     {
         initialize(_min_index_value, _max_index_value);
     }
 
     /**
          */
-    SkipListMap() : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
-                    _resolution_x(0.01), _resolution_y(0.01), _resolution_z(0.1),
-                    _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
+    SkipListMapV2() : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
+                      _resolution_x(0.01), _resolution_y(0.01), _resolution_z(0.1),
+                      _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
     {
     }
 
     /**
          * 
          */
-    virtual ~SkipListMap()
+    virtual ~SkipListMapV2()
     {
         for (typename std::map<K, boost::mutex *>::iterator it = this->mutex_map.begin(); it != this->mutex_map.end(); ++it)
         {
@@ -312,15 +313,15 @@ class SkipListMap
             }
             else
             {
-                if (this->hasConcurrencyAccess())
-                    this->lockMap(ix);
-
+                //if (this->hasConcurrencyAccess())
+                this->_root_list->lock(ix);
                 const typename X_NODE::NodeType *ylist = _root_list->find(ix);
                 if (ylist == NULL)
                 {
                     ylist = _root_list->insert(ix, new Y_NODE(_min_index_value, _max_index_value));
                     _bytes_counter += sizeof(typename X_NODE::NodeType) + sizeof(Y_NODE);
                 }
+
                 const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
                 if (zlist == NULL)
                 {
@@ -337,8 +338,8 @@ class SkipListMap
                 {
                     *(voxel->value) = *(voxel->value) + *data;
                 }
-                if (this->hasConcurrencyAccess())
-                    this->unlockMap(ix);
+                //if (this->hasConcurrencyAccess())
+                this->_root_list->unlock(ix);
             }
             return true;
         }
@@ -561,7 +562,7 @@ class SkipListMap
         V a1;
         K a2;
         D a3;
-        f << "# SkipListMap<" << typeid(a1).name() << "," << typeid(a2).name() << "," << typeid(a3).name() << ">" << std::endl;
+        f << "# SkipListMapV2<" << typeid(a1).name() << "," << typeid(a2).name() << "," << typeid(a3).name() << ">" << std::endl;
         f << _min_index_value << " " << _max_index_value << " ";
         f << _resolution_x << " ";
         f << _resolution_y << " ";
@@ -677,4 +678,4 @@ class SkipListMap
 };
 }
 
-#endif /* SKIPLISTMAP_HPP */
+#endif /* SkipListMapV2_HPP */

@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits>
+#include <iomanip>
 
 namespace skimap
 {
@@ -45,6 +46,17 @@ struct GenericVoxel3D
          * @param data User Data pointer
          */
     GenericVoxel3D(D x, D y, D z, V *data) : x(x), y(y), z(z), data(data)
+    {
+    }
+
+    /**
+         * Full Constructor
+         * @param x X coordinate
+         * @param y Y coordinate
+         * @param z Z coordinate
+         * @param data User Data pointer
+         */
+    GenericVoxel3D(D x, D y, V *data) : x(x), y(y), z(0.0), data(data)
     {
     }
 

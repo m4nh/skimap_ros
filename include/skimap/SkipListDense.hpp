@@ -59,10 +59,6 @@ class SkipListDenseNode
      */
     SkipListDenseNode()
     {
-        for (int i = 1; i <= MAXLEVEL; i++)
-        {
-            forwards[i] = NULL;
-        }
     }
 
     /**
@@ -71,10 +67,6 @@ class SkipListDenseNode
      */
     SkipListDenseNode(K searchKey) : key(searchKey)
     {
-        for (int i = 1; i <= MAXLEVEL; i++)
-        {
-            forwards[i] = NULL;
-        }
     }
 
     /**
@@ -84,10 +76,6 @@ class SkipListDenseNode
      */
     SkipListDenseNode(K searchKey, V val) : key(searchKey), value(val)
     {
-        for (int i = 1; i <= MAXLEVEL; i++)
-        {
-            forwards[i] = NULL;
-        }
     }
 
     /**
@@ -99,7 +87,6 @@ class SkipListDenseNode
 
     K key;
     V value;
-    SkipListDenseNode<K, V, MAXLEVEL> *forwards[MAXLEVEL + 1];
 };
 
 /**
@@ -121,13 +108,17 @@ class SkipListDense
      * @param min_key min Key value.
      * @param max_key max Key value.
      */
-    SkipListDense(K min_key, K max_key) : header_node_(NULL), tail_node_(NULL),
-                                          max_current_level_(1), max_level(MAXLEVEL),
-                                          min_key_(min_key), max_value_(max_key), size_(0), last_(0)
+    SkipListDense(K min_key, K max_key, bool prepare_locks = true) : header_node_(NULL), tail_node_(NULL),
+                                                                     max_current_level_(1), max_level(MAXLEVEL),
+                                                                     min_key_(min_key), max_value_(max_key), size_(0), last_(0)
     {
-        this->key_sizes = max_key - min_key;
+        this->key_sizes = long(max_key) - long(min_key);
+        //printf("Create Dense List: %d,%d =  %ld\n", min_key, max_key, this->key_sizes);
         this->_dense_nodes = new NodeType *[this->key_sizes];
-        this->_mutex_array = new Lock[this->key_sizes];
+        if (prepare_locks)
+        {
+            this->_mutex_array = new Lock[this->key_sizes];
+        }
         this->empty();
         // header_node_ = new NodeType(min_key_);
         // tail_node_ = new NodeType(max_value_);

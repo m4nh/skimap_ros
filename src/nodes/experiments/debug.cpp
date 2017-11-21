@@ -58,15 +58,29 @@ typedef skimap::VoxelDataOccupancy<CoordinatesType> VoxelData;
 typedef short IndexType;
 
 auto _current_time = std::chrono::high_resolution_clock::now();
+auto _current_time2 = std::chrono::high_resolution_clock::now();
 auto getTime()
 {
   _current_time = std::chrono::high_resolution_clock::now();
   return _current_time;
 }
+auto getTime2()
+{
+  _current_time2 = std::chrono::high_resolution_clock::now();
+  return _current_time2;
+}
 
 auto deltaTime()
 {
   auto t1 = _current_time;
+  auto t2 = getTime();
+  auto dt = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+  return dt / 1000000.0;
+}
+
+auto deltaTime2()
+{
+  auto t1 = _current_time2;
   auto t2 = getTime();
   auto dt = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
   return dt / 1000000.0;
@@ -143,6 +157,7 @@ void printResults(std::string name, double t_c, double t_s, double memory)
 
 std::vector<int> computeOctree(Points &points, float resolution, CoordinatesType radius, std::string substring, bool print_output)
 {
+
   typedef pcl::PointXYZ PointType;
 
   pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
@@ -151,7 +166,6 @@ std::vector<int> computeOctree(Points &points, float resolution, CoordinatesType
   cloud->points.resize(cloud->width * cloud->height);
 
   getTime();
-#pragma omp parallel for
 
   for (int i = 0; i < points.size(); i++)
   {
@@ -176,7 +190,8 @@ std::vector<int> computeOctree(Points &points, float resolution, CoordinatesType
   searchPoint.z = MAX_RANDOM_COORD / 2.0;
 
   octree.radiusSearch(searchPoint, radius, pointIdxRadiusSearch, pointRadiusSquaredDistance);
-  //printf("Found %d\n", int(pointIdxRadiusSearch.size()));
+  if (_debug > 0)
+    printf(" Found %d ", int(pointIdxRadiusSearch.size()));
   double time_search = deltaTime();
 
   double vm, rss;
@@ -360,17 +375,47 @@ int main(int argc, char **argv)
   }
   else if (algo.compare("octree") == 0 && DIM == 3)
   {
-    std::vector<int> indices = computeOctree(integration_data, resolution, radius, algo, true);
-    if (_debug == 1)
-    {
-      for (int i = 0; i < indices.size(); i++)
-      {
-        std::vector<CoordinatesType> cds = integration_data[indices[i]];
+    typedef pcl::PointXYZ PointType;
 
-        image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 255, 255);
-      }
+    pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
+    cloud->width = integration_data.size();
+    cloud->height = 1;
+    cloud->points.resize(cloud->width * cloud->height);
+
+    getTime();
+
+    for (int i = 0; i < integration_data.size(); i++)
+    {
+      PointType p;
+      cloud->points[i].x = integration_data[i][0];
+      cloud->points[i].y = integration_data[i][1];
+      cloud->points[i].z = integration_data[i][2];
     }
-    //printf("S %d\n", int(indices.size()));
+
+    pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+
+    octree.setInputCloud(cloud);
+    octree.addPointsFromInputCloud();
+    double time_creation = deltaTime();
+
+    getTime();
+    std::vector<int> pointIdxRadiusSearch;
+    std::vector<float> pointRadiusSquaredDistance;
+    PointType searchPoint;
+    searchPoint.x = MAX_RANDOM_COORD / 2.0;
+    searchPoint.y = MAX_RANDOM_COORD / 2.0;
+    searchPoint.z = MAX_RANDOM_COORD / 2.0;
+
+    octree.radiusSearch(searchPoint, radius, pointIdxRadiusSearch, pointRadiusSquaredDistance);
+    if (_debug > 0)
+      printf(" Found %d ", int(pointIdxRadiusSearch.size()));
+    double time_search = deltaTime();
+
+    double vm, rss;
+    process_mem_usage(vm, rss);
+    double memory = rss;
+
+    printResults(algo, time_creation, time_search, memory);
   }
   else if (algo.compare("skimap") == 0)
   {
@@ -410,7 +455,7 @@ int main(int argc, char **argv)
 
     printResults(algo, time_creation, time_search, memory);
 
-    if (_debug == 1)
+    /*    if (_debug == 1)
     {
       printf(" Found: %d ", int(voxels.size()));
       bool consistency = true;
@@ -433,7 +478,8 @@ int main(int argc, char **argv)
       {
         printf("Ski is good!\n");
       }
-    }
+    }*/
+    return 0;
   }
   else if (algo.compare("skimap2") == 0)
   {
@@ -475,7 +521,7 @@ int main(int argc, char **argv)
 
     printResults(algo, time_creation, time_search, memory);
 
-    if (_debug == 1)
+    /* if (_debug == 1)
     {
       printf(" Found: %d ", int(voxels.size()));
       bool consistency = true;
@@ -488,7 +534,8 @@ int main(int argc, char **argv)
 
         printf("Ski is good!\n");
       }
-    }
+    }*/
+    return 0;
   }
 
   else if (algo.compare("kdskip") == 0)

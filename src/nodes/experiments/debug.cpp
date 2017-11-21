@@ -41,6 +41,8 @@
 #include <skimap/SkiMap.hpp>
 #include <skimap/SkipListMapV2.hpp>
 #include <skimap/voxels/VoxelDataOccupancy.hpp>
+#include <fstream>
+using namespace std;
 
 #define MAX_RANDOM_COLOR 1.0
 #define MIN_RANDOM_COLOR 0.0
@@ -102,8 +104,8 @@ bool checkPresence(std::vector<std::vector<CoordinatesType>> &search_data, std::
 }
 void process_mem_usage(double &vm_usage, double &resident_set)
 {
-  using std::ios_base;
   using std::ifstream;
+  using std::ios_base;
   using std::string;
 
   vm_usage = 0.0;
@@ -148,7 +150,9 @@ std::vector<int> computeOctree(Points &points, float resolution, CoordinatesType
   cloud->height = 1;
   cloud->points.resize(cloud->width * cloud->height);
 
+  getTime();
 #pragma omp parallel for
+
   for (int i = 0; i < points.size(); i++)
   {
     PointType p;
@@ -157,7 +161,6 @@ std::vector<int> computeOctree(Points &points, float resolution, CoordinatesType
     cloud->points[i].z = points[i][2];
   }
 
-  getTime();
   pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
 
   octree.setInputCloud(cloud);
@@ -261,6 +264,24 @@ std::vector<int> computeFlann(int ndim, Points &points, CoordinatesType radius, 
   return indices;
 }
 
+void loadFromFile(std::string filename, std::vector<double> &values)
+{
+
+  ifstream file(filename, ios::in | ios::binary | ios::ate);
+  if (file.is_open())
+  {
+    file.seekg(0, std::ios::end);
+    size_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    char *buffer = new char[size];
+    file.read(buffer, size);
+    file.close();
+
+    double *double_values = (double *)buffer; //reinterpret as doubles
+    values = vector<double>(double_values, double_values + (size / sizeof(double)));
+  };
+}
+
 int main(int argc, char **argv)
 {
 
@@ -287,19 +308,38 @@ int main(int argc, char **argv)
 
   std::vector<std::vector<CoordinatesType>> integration_data;
 
-  for (int i = 0; i < N_POINTS; i++)
+  if (N_POINTS < 0)
   {
-    std::vector<CoordinatesType> cds;
-    for (int d = 0; d < DIM; d++)
+    std::string filename = "/home/daniele/Scaricati/freiburgCampus360_3D/points.binary";
+    std::vector<double> values;
+    loadFromFile(filename, values);
+    N_POINTS = int(values[0]);
+    printf("Loaded from file:%d\n", N_POINTS);
+    for (int i = 0; i < N_POINTS; i++)
     {
-      cds.push_back(fRand(MIN_RANDOM_COORD, MAX_RANDOM_COORD));
+      std::vector<CoordinatesType> cds;
+      cds.push_back(values[1 + i * 3]);
+      cds.push_back(values[2 + i * 3]);
+      cds.push_back(values[3 + i * 3]);
+      integration_data.push_back(cds);
     }
+  }
+  else
+  {
+    for (int i = 0; i < N_POINTS; i++)
+    {
+      std::vector<CoordinatesType> cds;
+      for (int d = 0; d < DIM; d++)
+      {
+        cds.push_back(fRand(MIN_RANDOM_COORD, MAX_RANDOM_COORD));
+      }
 
-    if (_debug == 1 && DIM == 2)
-    {
-      image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 22, 255);
+      if (_debug == 1 && DIM == 2)
+      {
+        image.at<cv::Vec3b>(cds[1], cds[0]) = cv::Vec3b(255, 22, 255);
+      }
+      integration_data.push_back(cds);
     }
-    integration_data.push_back(cds);
   }
 
   printf("%s %d %d %f %f", algo.c_str(), DIM, N_POINTS, MAX_RANDOM_COORD, resolution);
@@ -395,7 +435,7 @@ int main(int argc, char **argv)
       }
     }
   }
-  else if (algo.find("skimap2") == 0)
+  else if (algo.compare("skimap2") == 0)
   {
 
     //printf("Random %d\n", rand() % 1000);
@@ -410,6 +450,7 @@ int main(int argc, char **argv)
 #pragma omp parallel for
     for (int i = 0; i < integration_data.size(); i++)
     {
+      //printf("%d\n", i);
       VoxelData voxel(1.0);
       //printf("Integrating: %f,%f,%f\n", integration_data[i][0], integration_data[i][1], integration_data[i][2]);
       kd_skip_list.integrateVoxel(integration_data[i][0], integration_data[i][1], integration_data[i][2], &voxel);
@@ -441,8 +482,10 @@ int main(int argc, char **argv)
       for (int i = 0; i < voxels.size(); i++)
       {
       }
+
       if (consistency)
       {
+
         printf("Ski is good!\n");
       }
     }

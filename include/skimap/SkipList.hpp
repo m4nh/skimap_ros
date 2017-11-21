@@ -401,12 +401,17 @@ class SkipList
     int randomLevel()
     {
         int level = 1;
-        double p = 0.5;
-        while (uniformRandom() < p && level < MAXLEVEL)
+        //double p = 0.5;
+        while (rand() % 2 == 0 && level < MAXLEVEL)
         {
             level++;
         }
         return level;
+    }
+
+    int randomLevelProb()
+    {
+        return rand() % MAXLEVEL + 1;
     }
 
     K min_key_;

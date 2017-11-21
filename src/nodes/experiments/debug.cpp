@@ -375,14 +375,14 @@ int main(int argc, char **argv)
   }
   else if (algo.compare("octree") == 0 && DIM == 3)
   {
+    getTime();
+
     typedef pcl::PointXYZ PointType;
 
     pcl::PointCloud<PointType>::Ptr cloud(new pcl::PointCloud<PointType>);
     cloud->width = integration_data.size();
     cloud->height = 1;
     cloud->points.resize(cloud->width * cloud->height);
-
-    getTime();
 
     for (int i = 0; i < integration_data.size(); i++)
     {
@@ -416,6 +416,9 @@ int main(int argc, char **argv)
     double memory = rss;
 
     printResults(algo, time_creation, time_search, memory);
+    float *a;
+    //a[2] = 3;
+    return 0;
   }
   else if (algo.compare("skimap") == 0)
   {
@@ -485,7 +488,7 @@ int main(int argc, char **argv)
   {
 
     //printf("Random %d\n", rand() % 1000);
-    typedef skimap::SkipListMapV2<VoxelData, IndexType, CoordinatesType, 16, 16, 16> MAP;
+    typedef skimap::SkipListMapV2<VoxelData, IndexType, CoordinatesType, 8, 8, 8> MAP;
     MAP kd_skip_list(resolution);
     typedef MAP::Voxel3D Voxel;
 
@@ -521,7 +524,7 @@ int main(int argc, char **argv)
 
     printResults(algo, time_creation, time_search, memory);
 
-    /* if (_debug == 1)
+    if (_debug == 1)
     {
       printf(" Found: %d ", int(voxels.size()));
       bool consistency = true;
@@ -534,7 +537,7 @@ int main(int argc, char **argv)
 
         printf("Ski is good!\n");
       }
-    }*/
+    }
     return 0;
   }
 

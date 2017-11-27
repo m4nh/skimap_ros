@@ -351,50 +351,6 @@ class SkipListMapV2
     }
 
     /**
-         *
-         */
-    virtual bool commitBatchIntegration()
-    {
-        _batch_integration = false;
-
-        std::vector<const typename X_NODE::NodeType *> ynodes(_current_integration_map.map_keys.size());
-#pragma omp parallel
-        {
-#pragma omp for nowait
-            for (int i = 0; i < _current_integration_map.map_keys.size(); i++)
-            {
-                K key = _current_integration_map.map_keys[i];
-                const typename X_NODE::NodeType *ylist = _root_list->find(key);
-                if (ylist == NULL)
-                {
-#pragma omp critical
-                    {
-                        ylist = _root_list->insert(key, new Y_NODE(_min_index_value, _max_index_value));
-                    }
-                }
-                ynodes[i] = ylist;
-            }
-        }
-
-#pragma omp parallel
-        {
-#pragma omp for nowait
-            for (int i = 0; i < _current_integration_map.map_keys.size(); i++)
-            {
-                K key = _current_integration_map.map_keys[i];
-                const typename X_NODE::NodeType *ylist = ynodes[i];
-                std::vector<IntegrationEntry> entries = _current_integration_map.map[key];
-                for (int j = 0; j < entries.size(); j++)
-                {
-                    IntegrationEntry entry = entries[j];
-                    _integrateXNode(ylist, entry.y, entry.z, entry.data);
-                }
-            }
-        }
-        return true;
-    }
-
-    /**
          * 
          * @param voxels
          */

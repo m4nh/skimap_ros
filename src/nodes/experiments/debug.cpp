@@ -35,6 +35,7 @@
 // PCL
 #include <pcl/point_cloud.h>
 #include <pcl/octree/octree_search.h>
+#include <pcl/octree/octree_pointcloud_occupancy.h>
 
 // Skimap
 #include <skimap/KDSkipList.hpp>
@@ -346,7 +347,7 @@ int main(int argc, char **argv)
       std::vector<CoordinatesType> cds;
       for (int d = 0; d < DIM; d++)
       {
-        cds.push_back(fRand(MIN_RANDOM_COORD, MAX_RANDOM_COORD));
+        cds.push_back(fRand(-MAX_RANDOM_COORD, MAX_RANDOM_COORD));
       }
 
       if (_debug == 1 && DIM == 2)
@@ -399,6 +400,12 @@ int main(int argc, char **argv)
     double time_creation = deltaTime();
 
     getTime();
+    octree.setInputCloud(cloud);
+    octree.addPointsFromInputCloud();
+    double time_creation2 = deltaTime();
+    printf("\n %f -> %f \n", time_creation, time_creation2);
+
+    getTime();
     std::vector<int> pointIdxRadiusSearch;
     std::vector<float> pointRadiusSquaredDistance;
     PointType searchPoint;
@@ -431,7 +438,7 @@ int main(int argc, char **argv)
 
     getTime();
 
-#pragma omp parallel for
+    //#pragma omp parallel for
     for (int i = 0; i < integration_data.size(); i++)
     {
       VoxelData voxel(1.0);
@@ -448,7 +455,7 @@ int main(int argc, char **argv)
 
     getTime();
     std::vector<Voxel> voxels;
-    kd_skip_list.radiusSearch(radius_center[0], radius_center[1], radius_center[2], radius, radius, radius, voxels);
+    //kd_skip_list.radiusSearch(radius_center[0], radius_center[1], radius_center[2], radius, radius, radius, voxels);
     //printf("FOund: %d\n",int(voxels.size()));
     double time_search = deltaTime();
 
@@ -488,15 +495,22 @@ int main(int argc, char **argv)
   {
 
     //printf("Random %d\n", rand() % 1000);
-    typedef skimap::SkipListMapV2<VoxelData, IndexType, CoordinatesType, 8, 8, 8> MAP;
+    typedef skimap::SkipListMapV2<VoxelData, IndexType, CoordinatesType, 8, 6, 4> MAP;
     MAP kd_skip_list(resolution);
     typedef MAP::Voxel3D Voxel;
 
     kd_skip_list.enableConcurrencyAccess(true);
 
+    /*
+    for (float f = -MAX_RANDOM_COORD; f < MAX_RANDOM_COORD; f += resolution)
+    {
+      VoxelData voxel(1.0);
+      kd_skip_list.integrateVoxel(f, 0.0f, 0.0f, &voxel);
+    }*/
+
     getTime();
 
-#pragma omp parallel for
+    //#pragma omp parallel for
     for (int i = 0; i < integration_data.size(); i++)
     {
       //printf("%d\n", i);
@@ -506,6 +520,21 @@ int main(int argc, char **argv)
     }
     double time_creation = deltaTime();
 
+    getTime();
+
+    /*
+#pragma omp parallel for
+    for (int i = 0; i < integration_data.size(); i++)
+    {
+      //printf("%d\n", i);
+      VoxelData voxel(1.0);
+      //printf("Integrating: %f,%f,%f\n", integration_data[i][0], integration_data[i][1], integration_data[i][2]);
+      kd_skip_list.integrateVoxel(integration_data[i][0], integration_data[i][1], integration_data[i][2], &voxel);
+    }
+    double time_creation2 = deltaTime();
+    printf("\n %f -> %f \n", time_creation, time_creation2);
+*/
+
     std::vector<CoordinatesType> radius_center(DIM);
     for (int i = 0; i < DIM; i++)
     {
@@ -514,7 +543,7 @@ int main(int argc, char **argv)
 
     getTime();
     std::vector<Voxel> voxels;
-    kd_skip_list.radiusSearch(radius_center[0], radius_center[1], radius_center[2], radius, radius, radius, voxels);
+    //    kd_skip_list.radiusSearch(radius_center[0], radius_center[1], radius_center[2], radius, radius, radius, voxels);
     //printf("FOund: %d\n",int(voxels.size()));
     double time_search = deltaTime();
 

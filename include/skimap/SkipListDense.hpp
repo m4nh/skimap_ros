@@ -321,7 +321,7 @@ class SkipListDense
         long start = _convertKey(min_key);
         long end = _convertKey(max_key);
 
-        /*for (int i = start; i <= end; i++)
+        for (int i = start; i <= end; i++)
         {
             if (checkInnerKey(i))
             {
@@ -330,26 +330,6 @@ class SkipListDense
                     nodes.push_back(this->_dense_nodes[i]);
                 }
             }
-        }*/
-
-#pragma omp parallel
-        {
-            std::vector<NodeType *> nodes_private;
-
-#pragma omp for nowait
-            for (int i = start; i <= end; i++)
-            {
-                if (checkInnerKey(i))
-                {
-                    if (this->_dense_nodes[i] != NULL)
-                    {
-                        nodes_private.push_back(this->_dense_nodes[i]);
-                    }
-                }
-            }
-
-#pragma omp critical
-            nodes.insert(nodes.end(), nodes_private.begin(), nodes_private.end());
         }
     }
 

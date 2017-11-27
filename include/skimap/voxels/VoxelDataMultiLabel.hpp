@@ -169,7 +169,7 @@ struct VoxelDataMultiLabel
         os << voxel.labels_map.size() << " ";
         for (auto it = voxel.labels_map.begin(); it != voxel.labels_map.end(); ++it)
         {
-            os << it->first << " " << it->second;
+            os << double(it->first) << " " << double(it->second);
             if (count < voxel.labels_map.size() - 1)
             {
                 os << " ";

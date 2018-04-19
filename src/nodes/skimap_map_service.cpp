@@ -56,7 +56,8 @@ std::string camera_frame_name = "camera";
 
 /**
  */
-struct map_service_parameters {
+struct map_service_parameters
+{
   float map_resolution;
   int min_voxel_weight;
   float ground_level;
@@ -64,17 +65,20 @@ struct map_service_parameters {
   bool height_color_enabled;
   float camera_max_z;
   float camera_min_z;
+  std::string height_axis;
 } map_service_parameters;
 
 /**
  */
-struct MapSynchManager {
+struct MapSynchManager
+{
   boost::mutex map_mutex;
 } map_synch_manager;
 
 /**
  */
-struct ColorPoint {
+struct ColorPoint
+{
   cv::Point3f point;
   cv::Vec4b color;
   int w;
@@ -82,7 +86,8 @@ struct ColorPoint {
 
 /**
  */
-struct IntegrationPoint {
+struct IntegrationPoint
+{
   float x, y, z;
   VoxelDataColor voxel_data;
 };
@@ -97,7 +102,8 @@ struct IntegrationPoint {
  */
 visualization_msgs::Marker
 createVisualizationMarker(std::string frame_id, ros::Time time, int id,
-                          std::vector<Voxel3D> &voxels, int min_weight_th = 1) {
+                          std::vector<Voxel3D> &voxels, int min_weight_th = 1)
+{
 
   /**
    * Creating Visualization Marker
@@ -114,10 +120,21 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
   marker.scale.z = map_service_parameters.map_resolution;
 
   cv::Mat colorSpace(1, voxels.size(), CV_32FC3);
-  for (int i = 0; i < voxels.size(); i++) {
+
+  for (int i = 0; i < voxels.size(); i++)
+  {
+    double axis_value = voxels[i].z;
+    if (map_service_parameters.height_axis.compare("x") == 0)
+    {
+      axis_value = voxels[i].x;
+    }
+    else if (map_service_parameters.height_axis.compare("y") == 0)
+    {
+      axis_value = voxels[i].y;
+    }
     colorSpace.at<cv::Vec3f>(i)[0] =
         180 -
-        ((voxels[i].z - map_service_parameters.ground_level) /
+        ((axis_value - map_service_parameters.ground_level) /
          (map_service_parameters.height_color_step / 2)) *
             180;
     colorSpace.at<cv::Vec3f>(i)[1] = 1;
@@ -125,7 +142,8 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
   }
   cv::cvtColor(colorSpace, colorSpace, CV_HSV2BGR);
 
-  for (int i = 0; i < voxels.size(); i++) {
+  for (int i = 0; i < voxels.size(); i++)
+  {
 
     if (voxels[i].data->w < min_weight_th)
       continue;
@@ -142,12 +160,15 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
      */
     std_msgs::ColorRGBA color;
 
-    if (!map_service_parameters.height_color_enabled) {
+    if (!map_service_parameters.height_color_enabled)
+    {
       color.r = voxels[i].data->r / 255.0;
       color.g = voxels[i].data->g / 255.0;
       color.b = voxels[i].data->b / 255.0;
       color.a = 1;
-    } else {
+    }
+    else
+    {
       color.r = colorSpace.at<cv::Vec3f>(i)[0];
       color.g = colorSpace.at<cv::Vec3f>(i)[1];
       color.b = colorSpace.at<cv::Vec3f>(i)[2];
@@ -164,10 +185,12 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
 /**
  *
  */
-void integrateVoxels(std::vector<IntegrationPoint> &integration_points) {
+void integrateVoxels(std::vector<IntegrationPoint> &integration_points)
+{
   boost::mutex::scoped_lock lock(map_synch_manager.map_mutex);
   // map->startBatchIntegration();
-  for (int i = 0; i < integration_points.size(); i++) {
+  for (int i = 0; i < integration_points.size(); i++)
+  {
     IntegrationPoint &ip = integration_points[i];
     map->integrateVoxel(float(ip.x), float(ip.y), float(ip.z),
                         &(ip.voxel_data));
@@ -180,7 +203,8 @@ void integrateVoxels(std::vector<IntegrationPoint> &integration_points) {
  */
 bool integration_service_callback(
     skimap_ros::SkimapIntegrationService::Request &req,
-    skimap_ros::SkimapIntegrationService::Response &res) {
+    skimap_ros::SkimapIntegrationService::Response &res)
+{
   tf::Transform base_to_camera = tf::Transform(
       tf::Quaternion(
           req.sensor_pose.orientation.x, req.sensor_pose.orientation.y,
@@ -192,12 +216,14 @@ bool integration_service_callback(
   tf::Vector3 v = base_to_camera.getOrigin();
   std::vector<IntegrationPoint> integration_points;
 
-  for (int i = 0; i < req.points.size(); i++) {
+  for (int i = 0; i < req.points.size(); i++)
+  {
 
     double x = req.points[i].x;
     double y = req.points[i].y;
     double z = req.points[i].z;
-
+    if (z < map_service_parameters.camera_min_z)
+      continue;
     tf::Vector3 base_to_point(x, y, z);
     base_to_point = base_to_camera * base_to_point;
 
@@ -206,19 +232,25 @@ bool integration_service_callback(
     ip.y = base_to_point.y();
     ip.z = base_to_point.z();
 
-    if (i < req.colors.size()) {
+    if (i < req.colors.size())
+    {
       ip.voxel_data.r = req.colors[i].r;
       ip.voxel_data.g = req.colors[i].g;
       ip.voxel_data.b = req.colors[i].b;
-    } else {
+    }
+    else
+    {
       ip.voxel_data.r = 255;
       ip.voxel_data.g = 255;
       ip.voxel_data.b = 255;
     }
 
-    if (i < req.weights.size()) {
+    if (i < req.weights.size())
+    {
       ip.voxel_data.w = req.weights[i];
-    } else {
+    }
+    else
+    {
       ip.voxel_data.w = 1;
     }
 
@@ -239,7 +271,8 @@ bool integration_service_callback(
  * @param argv
  * @return
  */
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 
   // Initialize ROS
   ros::init(argc, argv, "skimap_map_service");
@@ -267,29 +300,28 @@ int main(int argc, char **argv) {
 
   // SkiMap
   nh->param<float>("camera_max_z", map_service_parameters.camera_max_z, 1.5f);
-  nh->param<float>("map_resolution", map_service_parameters.map_resolution,
-                   0.05f);
+  nh->param<float>("map_resolution", map_service_parameters.map_resolution, 0.05f);
   nh->param<float>("ground_level", map_service_parameters.ground_level, 0.15f);
-  nh->param<int>("min_voxel_weight", map_service_parameters.min_voxel_weight,
-                 10);
-  nh->param<float>("height_color_step",
-                   map_service_parameters.height_color_step, 0.5f);
-  nh->param<bool>("height_color", map_service_parameters.height_color_enabled,
-                  false);
+  nh->param<float>("camera_min_z", map_service_parameters.camera_min_z, 0.01f);
+  nh->param<int>("min_voxel_weight", map_service_parameters.min_voxel_weight, 10);
+  nh->param<float>("height_color_step", map_service_parameters.height_color_step, 0.5f);
+  nh->param<bool>("height_color", map_service_parameters.height_color_enabled, false);
+  nh->param<std::string>("height_axis", map_service_parameters.height_axis, "z");
 
-  map = new SKIMAP(map_service_parameters.map_resolution,
-                   map_service_parameters.ground_level);
+  map = new SKIMAP(map_service_parameters.map_resolution, map_service_parameters.ground_level);
 
   // Spin & Time
   ros::Rate r(hz);
 
   // Spin
-  while (nh->ok()) {
+  while (nh->ok())
+  {
 
     /**
     * 3D Map Publisher
     */
-    if (auto_publish_markers) {
+    if (auto_publish_markers)
+    {
 
       std::vector<Voxel3D> voxels;
       {
@@ -298,7 +330,7 @@ int main(int argc, char **argv) {
       }
       visualization_msgs::Marker map_marker = createVisualizationMarker(
           base_frame_name, ros::Time::now(),
-          map_service_parameters.min_voxel_weight, voxels);
+          1, voxels, map_service_parameters.min_voxel_weight);
       map_publisher.publish(map_marker);
     }
 

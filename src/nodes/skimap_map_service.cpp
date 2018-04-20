@@ -88,8 +88,13 @@ struct ColorPoint
  */
 struct IntegrationPoint
 {
+  bool valid;
   float x, y, z;
   VoxelDataColor voxel_data;
+  IntegrationPoint()
+  {
+    valid = false;
+  }
 };
 
 /**
@@ -189,9 +194,12 @@ void integrateVoxels(std::vector<IntegrationPoint> &integration_points)
 {
   boost::mutex::scoped_lock lock(map_synch_manager.map_mutex);
   // map->startBatchIntegration();
+  //#pragma omp parallel for
   for (int i = 0; i < integration_points.size(); i++)
   {
     IntegrationPoint &ip = integration_points[i];
+    if (!ip.valid)
+      continue;
     map->integrateVoxel(float(ip.x), float(ip.y), float(ip.z),
                         &(ip.voxel_data));
   }
@@ -214,8 +222,9 @@ bool integration_service_callback(
 
   tf::Quaternion q = base_to_camera.getRotation();
   tf::Vector3 v = base_to_camera.getOrigin();
-  std::vector<IntegrationPoint> integration_points;
+  std::vector<IntegrationPoint> integration_points(req.points.size());
 
+#pragma omp parallel for
   for (int i = 0; i < req.points.size(); i++)
   {
 
@@ -254,7 +263,8 @@ bool integration_service_callback(
       ip.voxel_data.w = 1;
     }
 
-    integration_points.push_back(ip);
+    ip.valid = true;
+    integration_points[i] = ip;
   }
 
   ROS_INFO("Request integration of %d points.", int(integration_points.size()));

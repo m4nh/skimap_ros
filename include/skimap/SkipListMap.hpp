@@ -35,50 +35,6 @@ class SkipListMap
   public:
     typedef GenericVoxel3D<V, D> Voxel3D;
 
-    /**
-         * Batch integration entry
-         */
-    struct IntegrationEntry
-    {
-        K x, y, z;
-        V *data;
-        int entry_depth;
-
-        IntegrationEntry(K x, K y, K z, V *data, int max_depth = 3) : x(x), y(y), z(z), data(data), entry_depth(max_depth)
-        {
-        }
-    };
-
-    /**
-         * Integration map for batch OMP integration
-         */
-    struct IntegrationMap
-    {
-        std::map<K, std::vector<IntegrationEntry>> map;
-        std::vector<K> map_keys;
-
-        IntegrationMap()
-        {
-        }
-
-        void addEntry(K x, K y, K z, V *data, int max_depth = 3)
-        {
-            IntegrationEntry entry(x, y, z, data, max_depth);
-            if (map.find(x) == map.end())
-            {
-                map[x] = std::vector<IntegrationEntry>();
-                map_keys.push_back(x);
-            }
-            map[x].push_back(entry);
-        }
-
-        void clear()
-        {
-            map.clear();
-            map_keys.clear();
-        }
-    };
-
     typedef K Index;
     typedef SkipList<Index, V *, Z_DEPTH> Z_NODE;
     typedef SkipList<Index, Z_NODE *, Y_DEPTH> Y_NODE;
@@ -94,7 +50,7 @@ class SkipListMap
          */
     SkipListMap(K min_index, K max_index, D resolution_x, D resolution_y, D resolution_z) : _min_index_value(min_index), _max_index_value(max_index),
                                                                                             _resolution_x(resolution_x), _resolution_y(resolution_y), _resolution_z(resolution_z),
-                                                                                            _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
+                                                                                            _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _initialized(false), _self_concurrency_management(false)
     {
         initialize(_min_index_value, _max_index_value);
     }
@@ -103,7 +59,7 @@ class SkipListMap
          */
     SkipListMap(D resolution) : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
                                 _resolution_x(resolution), _resolution_y(resolution), _resolution_z(resolution),
-                                _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
+                                _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _initialized(false), _self_concurrency_management(false)
     {
         initialize(_min_index_value, _max_index_value);
     }
@@ -112,7 +68,7 @@ class SkipListMap
          */
     SkipListMap() : _min_index_value(std::numeric_limits<K>::min()), _max_index_value(std::numeric_limits<K>::max()),
                     _resolution_x(0.01), _resolution_y(0.01), _resolution_z(0.1),
-                    _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _batch_integration(false), _initialized(false), _self_concurrency_management(false)
+                    _voxel_counter(0), _xlist_counter(0), _ylist_counter(0), _bytes_counter(0), _initialized(false), _self_concurrency_management(false)
     {
     }
 
@@ -306,98 +262,37 @@ class SkipListMap
     {
         if (isValidIndex(ix, iy, iz))
         {
-            if (_batch_integration)
+
+            if (this->hasConcurrencyAccess())
+                this->lockMap(ix);
+
+            const typename X_NODE::NodeType *ylist = _root_list->find(ix);
+            if (ylist == NULL)
             {
-                _current_integration_map.addEntry(ix, iy, iz, data);
+                ylist = _root_list->insert(ix, new Y_NODE(_min_index_value, _max_index_value));
+                _bytes_counter += sizeof(typename X_NODE::NodeType) + sizeof(Y_NODE);
+            }
+            const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
+            if (zlist == NULL)
+            {
+                zlist = ylist->value->insert(iy, new Z_NODE(_min_index_value, _max_index_value));
+                _bytes_counter += sizeof(typename Y_NODE::NodeType) + sizeof(Z_NODE);
+            }
+            const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
+            if (voxel == NULL)
+            {
+                voxel = zlist->value->insert(iz, new V(data));
+                _bytes_counter += sizeof(typename Y_NODE::NodeType) + sizeof(V);
             }
             else
             {
-                if (this->hasConcurrencyAccess())
-                    this->lockMap(ix);
-
-                const typename X_NODE::NodeType *ylist = _root_list->find(ix);
-                if (ylist == NULL)
-                {
-                    ylist = _root_list->insert(ix, new Y_NODE(_min_index_value, _max_index_value));
-                    _bytes_counter += sizeof(typename X_NODE::NodeType) + sizeof(Y_NODE);
-                }
-                const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
-                if (zlist == NULL)
-                {
-                    zlist = ylist->value->insert(iy, new Z_NODE(_min_index_value, _max_index_value));
-                    _bytes_counter += sizeof(typename Y_NODE::NodeType) + sizeof(Z_NODE);
-                }
-                const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
-                if (voxel == NULL)
-                {
-                    voxel = zlist->value->insert(iz, new V(data));
-                    _bytes_counter += sizeof(typename Y_NODE::NodeType) + sizeof(V);
-                }
-                else
-                {
-                    *(voxel->value) = *(voxel->value) + *data;
-                }
-                if (this->hasConcurrencyAccess())
-                    this->unlockMap(ix);
+                *(voxel->value) = *(voxel->value) + *data;
             }
+            if (this->hasConcurrencyAccess())
+                this->unlockMap(ix);
             return true;
         }
         return false;
-    }
-
-    /**
-         * 
-         * @return 
-         */
-    virtual bool startBatchIntegration()
-    {
-        _batch_integration = true;
-        _current_integration_map.clear();
-        return true;
-    }
-
-    /**
-         *
-         */
-    virtual bool commitBatchIntegration()
-    {
-        _batch_integration = false;
-
-        std::vector<const typename X_NODE::NodeType *> ynodes(_current_integration_map.map_keys.size());
-#pragma omp parallel
-        {
-#pragma omp for nowait
-            for (int i = 0; i < _current_integration_map.map_keys.size(); i++)
-            {
-                K key = _current_integration_map.map_keys[i];
-                const typename X_NODE::NodeType *ylist = _root_list->find(key);
-                if (ylist == NULL)
-                {
-#pragma omp critical
-                    {
-                        ylist = _root_list->insert(key, new Y_NODE(_min_index_value, _max_index_value));
-                    }
-                }
-                ynodes[i] = ylist;
-            }
-        }
-
-#pragma omp parallel
-        {
-#pragma omp for nowait
-            for (int i = 0; i < _current_integration_map.map_keys.size(); i++)
-            {
-                K key = _current_integration_map.map_keys[i];
-                const typename X_NODE::NodeType *ylist = ynodes[i];
-                std::vector<IntegrationEntry> entries = _current_integration_map.map[key];
-                for (int j = 0; j < entries.size(); j++)
-                {
-                    IntegrationEntry entry = entries[j];
-                    _integrateXNode(ylist, entry.y, entry.z, entry.data);
-                }
-            }
-        }
-        return true;
     }
 
     /**
@@ -666,7 +561,6 @@ class SkipListMap
     int _xlist_counter;
     int _ylist_counter;
     long _bytes_counter;
-    bool _batch_integration;
     bool _initialized;
     bool _self_concurrency_management;
     IntegrationMap _current_integration_map;

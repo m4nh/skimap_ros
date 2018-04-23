@@ -257,13 +257,11 @@ void integrate_cloud_in_map(pcl::PointCloud<PointType>::Ptr &cloud, Eigen::Matri
         voxels_to_integrate[i].w = deintegration ? -1 : 1;
     }
 
-    map_rgb->startBatchIntegration();
     for (int i = 0; i < voxels_to_integrate.size(); i++)
     {
         if (voxels_to_integrate_mask[i])
             map_rgb->integrateVoxel(float(poses_to_integrate[i][0]), float(poses_to_integrate[i][1]), float(poses_to_integrate[i][2]), &(voxels_to_integrate[i]));
     }
-    map_rgb->commitBatchIntegration();
 }
 
 /**

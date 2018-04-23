@@ -49,15 +49,6 @@ public:
   /**
    *
    */
-  struct IntegrationEntry
-  {
-    std::vector<SkimapServiceClient::ColorPoint> points;
-    geometry_msgs::Pose camera_pose;
-  };
-
-  /**
-   *
-   */
   SkimapServiceClient(ros::NodeHandle *node_handle, std::string service_name = "/skimap_map_service/integration_service") : service_name(service_name)
   {
 

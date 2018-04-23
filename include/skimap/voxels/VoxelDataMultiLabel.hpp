@@ -11,7 +11,7 @@
 
 #include <cstddef>
 #include <iostream>
-#include <typeinfo>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <map>
@@ -23,18 +23,19 @@ namespace skimap
  * L template represents datatype for a Label.
  * W template represents datatype for weights.
  */
-template <typename L, typename W>
+template <uint32_t LABELS_NUMBER, typename L, typename W>
 struct VoxelDataMultiLabel
 {
-    std::map<L, W> labels_map;
+
+    W histogram[LABELS_NUMBER];
 
     /**
      * Pointer Copy Constructor.
      * @param data source data
      */
-    VoxelDataMultiLabel(VoxelDataMultiLabel *data)
+    VoxelDataMultiLabel(const VoxelDataMultiLabel *data)
     {
-        labels_map = data->labels_map;
+        memcpy(histogram, data->histogram, LABELS_NUMBER * sizeof(W));
     }
 
     /**
@@ -42,6 +43,7 @@ struct VoxelDataMultiLabel
      */
     VoxelDataMultiLabel()
     {
+        memset(histogram, 0, LABELS_NUMBER * sizeof(W));
     }
 
     /**
@@ -51,7 +53,11 @@ struct VoxelDataMultiLabel
      */
     VoxelDataMultiLabel(L label, W weight)
     {
-        this->labels_map[label] = weight;
+        memset(histogram, 0, LABELS_NUMBER * sizeof(W));
+        if (label < LABELS_NUMBER)
+        {
+            histogram[label] = weight;
+        }
     }
 
     /**
@@ -61,23 +67,13 @@ struct VoxelDataMultiLabel
      */
     VoxelDataMultiLabel operator+(const VoxelDataMultiLabel &v2) const
     {
-        VoxelDataMultiLabel v1 = *this;
-        if (v1.labels_map.size() <= 0)
-            return v2;
-        VoxelDataMultiLabel d;
-        d.labels_map = v1.labels_map;
-        for (auto it = v2.labels_map.begin(); it != v2.labels_map.end(); ++it)
+        VoxelDataMultiLabel v1(this);
+
+        for (L i = 0; i < LABELS_NUMBER; i++)
         {
-            if (d.labels_map.find(it->first) != d.labels_map.end())
-            {
-                d.labels_map[it->first] += it->second;
-            }
-            else
-            {
-                d.labels_map[it->first] = it->second;
-            }
+            v1.histogram[i] += v2.histogram[i];
         }
-        return d;
+        return v1;
     }
 
     /**
@@ -87,19 +83,15 @@ struct VoxelDataMultiLabel
      */
     VoxelDataMultiLabel operator-(const VoxelDataMultiLabel &v2) const
     {
-        VoxelDataMultiLabel v1 = *this;
-        if (v1.labels_map.size() <= 0)
-            return v2;
-        VoxelDataMultiLabel d;
-        d.labels_map = v1.labels_map;
-        for (auto it = v2.labels_map.begin(); it != v2.labels_map.end(); ++it)
+        VoxelDataMultiLabel v1(this);
+        for (L i = 0; i < LABELS_NUMBER; i++)
         {
-            if (d.labels_map.find(it->first) != d.labels_map.end())
-            {
-                d.labels_map[it->first] -= it->second;
-            }
+            if (v1.histogram[i] > v2.histogram[i])
+                v1.histogram[i] -= v2.histogram[i];
+            else
+                v1.histogram[i] = 0;
         }
-        return d;
+        return v1;
     }
 
     /**
@@ -109,19 +101,16 @@ struct VoxelDataMultiLabel
     {
         W max = W(0);
         L max_label = L(-1);
-        for (auto it = labels_map.begin(); it != labels_map.end(); ++it)
+        for (L i = 0; i < LABELS_NUMBER; i++)
         {
-            if (only_positive)
+            //printf("Bin %d = %d \n", i, histogram[i]);
+            if (histogram[i] > max)
             {
-                if (it->second < 0)
-                    continue;
-            }
-            if (it->second > max)
-            {
-                max = it->second;
-                max_label = it->first;
+                max = histogram[i];
+                max_label = i;
             }
         }
+        //printf("Max %d \n", max_label);
         return max_label;
     }
 
@@ -131,16 +120,11 @@ struct VoxelDataMultiLabel
     W heavierWeight(bool only_positive = false)
     {
         W max = W(0);
-        for (auto it = labels_map.begin(); it != labels_map.end(); ++it)
+        for (L i = 0; i < LABELS_NUMBER; i++)
         {
-            if (only_positive)
+            if (histogram[i] > max)
             {
-                if (it->second < 0)
-                    continue;
-            }
-            if (it->second > max)
-            {
-                max = it->second;
+                max = histogram[i];
             }
         }
         return max;
@@ -152,29 +136,27 @@ struct VoxelDataMultiLabel
      */
     W weightOf(L label)
     {
-        if (labels_map.find(label) != labels_map.end())
-        {
-            return labels_map[label];
-        }
-        return -1.0;
+        if (label < LABELS_NUMBER)
+            return histogram[label];
+        else
+            return 0;
     }
 
     /**
      * Serializes object into stream.
      */
-    friend std::ostream &operator<<(std::ostream &os, const VoxelDataMultiLabel<L, W> &voxel)
+    friend std::ostream &operator<<(std::ostream &os, const VoxelDataMultiLabel<LABELS_NUMBER, L, W> &voxel)
     {
         int count = 0;
         os << std::setprecision(std::numeric_limits<double>::digits10 + 2);
-        os << voxel.labels_map.size() << " ";
-        for (auto it = voxel.labels_map.begin(); it != voxel.labels_map.end(); ++it)
+        os << LABELS_NUMBER << " ";
+        for (L i = 0; i < LABELS_NUMBER; i++)
         {
-            os << double(it->first) << " " << double(it->second);
-            if (count < voxel.labels_map.size() - 1)
+            os << voxel.histogram[i];
+            if (i < LABELS_NUMBER - 1)
             {
                 os << " ";
             }
-            count++;
         }
         return os;
     }
@@ -182,18 +164,16 @@ struct VoxelDataMultiLabel
     /**
      * Hydrates object from stream.
      */
-    friend std::istream &operator>>(std::istream &is, VoxelDataMultiLabel<L, W> &voxel)
+    friend std::istream &operator>>(std::istream &is, VoxelDataMultiLabel<LABELS_NUMBER, L, W> &voxel)
     {
 
         int size;
         is >> size;
-        for (int i = 0; i < size; i++)
+        for (L i = 0; i < LABELS_NUMBER; i++)
         {
-            double l;
             double w;
-            is >> l;
             is >> w;
-            voxel.labels_map[L(l)] = W(w);
+            voxel.histogram[i] = W(w);
         }
 
         return is;

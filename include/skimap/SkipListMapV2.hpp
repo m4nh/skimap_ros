@@ -23,7 +23,8 @@
 
 #define SkipListMapV2_MAX_DEPTH 16
 
-namespace skimap {
+namespace skimap
+{
 
 /**
      *
@@ -32,45 +33,10 @@ namespace skimap {
      */
 template <class V, class K, class D, int X_DEPTH = 8, int Y_DEPTH = 8,
           int Z_DEPTH = 8>
-class SkipListMapV2 {
+class SkipListMapV2
+{
 public:
   typedef GenericVoxel3D<V, D> Voxel3D;
-
-  /**
-       * Batch integration entry
-       */
-  struct IntegrationEntry {
-    K x, y, z;
-    V *data;
-    int entry_depth;
-
-    IntegrationEntry(K x, K y, K z, V *data, int max_depth = 3)
-        : x(x), y(y), z(z), data(data), entry_depth(max_depth) {}
-  };
-
-  /**
-       * Integration map for batch OMP integration
-       */
-  struct IntegrationMap {
-    std::map<K, std::vector<IntegrationEntry>> map;
-    std::vector<K> map_keys;
-
-    IntegrationMap() {}
-
-    void addEntry(K x, K y, K z, V *data, int max_depth = 3) {
-      IntegrationEntry entry(x, y, z, data, max_depth);
-      if (map.find(x) == map.end()) {
-        map[x] = std::vector<IntegrationEntry>();
-        map_keys.push_back(x);
-      }
-      map[x].push_back(entry);
-    }
-
-    void clear() {
-      map.clear();
-      map_keys.clear();
-    }
-  };
 
   typedef K Index;
   typedef SkipList<Index, V *, Z_DEPTH> Z_NODE;
@@ -90,8 +56,9 @@ public:
       : _min_index_value(min_index), _max_index_value(max_index),
         _resolution_x(resolution_x), _resolution_y(resolution_y),
         _resolution_z(resolution_z), _voxel_counter(0), _xlist_counter(0),
-        _ylist_counter(0), _bytes_counter(0), _batch_integration(false),
-        _initialized(false), _self_concurrency_management(false) {
+        _ylist_counter(0), _bytes_counter(0),
+        _initialized(false), _self_concurrency_management(false)
+  {
     initialize(_min_index_value, _max_index_value);
   }
 
@@ -102,8 +69,9 @@ public:
         _max_index_value(std::numeric_limits<K>::max()),
         _resolution_x(resolution), _resolution_y(resolution),
         _resolution_z(resolution), _voxel_counter(0), _xlist_counter(0),
-        _ylist_counter(0), _bytes_counter(0), _batch_integration(false),
-        _initialized(false), _self_concurrency_management(false) {
+        _ylist_counter(0), _bytes_counter(0),
+        _initialized(false), _self_concurrency_management(false)
+  {
     initialize(_min_index_value, _max_index_value);
   }
 
@@ -114,24 +82,28 @@ public:
         _max_index_value(std::numeric_limits<K>::max()), _resolution_x(0.01),
         _resolution_y(0.01), _resolution_z(0.1), _voxel_counter(0),
         _xlist_counter(0), _ylist_counter(0), _bytes_counter(0),
-        _batch_integration(false), _initialized(false),
+        _initialized(false),
         _self_concurrency_management(false) {}
 
   /**
        *
        */
-  virtual ~SkipListMapV2() {
+  virtual ~SkipListMapV2()
+  {
     for (typename std::map<K, boost::mutex *>::iterator it =
              this->mutex_map.begin();
-         it != this->mutex_map.end(); ++it) {
+         it != this->mutex_map.end(); ++it)
+    {
       delete it->second;
     }
   }
 
   /**
        */
-  void initialize(K min_index, K max_index) {
-    if (_initialized) {
+  void initialize(K min_index, K max_index)
+  {
+    if (_initialized)
+    {
       delete _root_list;
     }
     _root_list = new X_NODE(min_index, max_index);
@@ -145,7 +117,8 @@ public:
        * @param iz
        * @return
        */
-  virtual bool isValidIndex(K ix, K iy, K iz) {
+  virtual bool isValidIndex(K ix, K iy, K iz)
+  {
     bool result = true;
     result &= ix <= _max_index_value && ix >= _min_index_value;
     result &= iy <= _max_index_value && iy >= _min_index_value;
@@ -163,7 +136,8 @@ public:
        * @param iz
        * @return
        */
-  virtual bool coordinatesToIndex(D x, D y, D z, K &ix, K &iy, K &iz) {
+  virtual bool coordinatesToIndex(D x, D y, D z, K &ix, K &iy, K &iz)
+  {
     ix = K(floor(x / _resolution_x));
     iy = K(floor(y / _resolution_y));
     iz = K(floor(z / _resolution_z));
@@ -177,7 +151,8 @@ public:
        * @param resolution
        * @return
        */
-  virtual bool singleIndexToCoordinate(K index, D &coordinate, D resolution) {
+  virtual bool singleIndexToCoordinate(K index, D &coordinate, D resolution)
+  {
     coordinate = index * resolution + resolution * 0.5;
   }
 
@@ -191,7 +166,8 @@ public:
        * @param z
        * @return
        */
-  virtual bool indexToCoordinates(K ix, K iy, K iz, D &x, D &y, D &z) {
+  virtual bool indexToCoordinates(K ix, K iy, K iz, D &x, D &y, D &z)
+  {
     x = ix * _resolution_x + _resolution_x * 0.5;
     y = iy * _resolution_y + _resolution_y * 0.5;
     z = iz * _resolution_z + _resolution_z * 0.5;
@@ -205,13 +181,17 @@ public:
        * @param iz
        * @return
        */
-  virtual V *find(K ix, K iy, K iz) {
+  virtual V *find(K ix, K iy, K iz)
+  {
     const typename X_NODE::NodeType *ylist = _root_list->find(ix);
-    if (ylist != NULL && ylist->value != NULL) {
+    if (ylist != NULL && ylist->value != NULL)
+    {
       const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
-      if (zlist != NULL && zlist->value != NULL) {
+      if (zlist != NULL && zlist->value != NULL)
+      {
         const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
-        if (voxel != NULL) {
+        if (voxel != NULL)
+        {
           return voxel->value;
         }
       }
@@ -226,9 +206,11 @@ public:
        * @param z
        * @return
        */
-  virtual V *find(D x, D y, D z) {
+  virtual V *find(D x, D y, D z)
+  {
     K ix, iy, iz;
-    if (coordinatesToIndex(x, y, z, ix, iy, iz)) {
+    if (coordinatesToIndex(x, y, z, ix, iy, iz))
+    {
       return find(ix, iy, iz);
     }
     return NULL;
@@ -239,9 +221,11 @@ public:
   * @param key x index
   * @return
   */
-  virtual void lockMap(K key) {
+  virtual void lockMap(K key)
+  {
     this->mutex_map_mutex.lock();
-    if (this->mutex_map.count(key) == 0) {
+    if (this->mutex_map.count(key) == 0)
+    {
       mutex_map[key] = new boost::mutex();
     }
     this->mutex_map_mutex.unlock();
@@ -253,9 +237,11 @@ public:
   * @param key x index
   * @return
   */
-  virtual void unlockMap(K key) {
+  virtual void unlockMap(K key)
+  {
     this->mutex_map_mutex.lock();
-    if (this->mutex_map.count(key) > 0) {
+    if (this->mutex_map.count(key) > 0)
+    {
       mutex_map[key]->unlock();
     }
     this->mutex_map_mutex.unlock();
@@ -269,9 +255,11 @@ public:
        * @param data
        * @return
        */
-  virtual bool integrateVoxel(D x, D y, D z, V *data) {
+  virtual bool integrateVoxel(D x, D y, D z, V *data)
+  {
     K ix, iy, iz;
-    if (coordinatesToIndex(x, y, z, ix, iy, iz)) {
+    if (coordinatesToIndex(x, y, z, ix, iy, iz))
+    {
       return integrateVoxel(ix, iy, iz, data);
     }
     return false;
@@ -285,30 +273,37 @@ public:
        * @param data
        * @return
        */
-  virtual bool integrateVoxel(K ix, K iy, K iz, V *data) {
-    if (isValidIndex(ix, iy, iz)) {
+  virtual bool integrateVoxel(K ix, K iy, K iz, V *data)
+  {
+    if (isValidIndex(ix, iy, iz))
+    {
 
       if (this->hasConcurrencyAccess())
         this->_root_list->lock(ix);
 
       const typename X_NODE::NodeType *ylist = _root_list->find(ix);
-      if (ylist == NULL) {
+      if (ylist == NULL)
+      {
         ylist = _root_list->insert(
             ix, new Y_NODE(_min_index_value, _max_index_value));
         //_bytes_counter += sizeof(typename X_NODE::NodeType) + sizeof(Y_NODE);
       }
 
       const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
-      if (zlist == NULL) {
+      if (zlist == NULL)
+      {
         zlist = ylist->value->insert(
             iy, new Z_NODE(_min_index_value, _max_index_value));
         //_bytes_counter += sizeof(typename Y_NODE::NodeType) + sizeof(Z_NODE);
       }
       const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
-      if (voxel == NULL) {
+      if (voxel == NULL)
+      {
         voxel = zlist->value->insert(iz, new V(data));
         // _bytes_counter += sizeof(typename Y_NODE::NodeType) + sizeof(V);
-      } else {
+      }
+      else
+      {
         *(voxel->value) = *(voxel->value) + *data;
       }
 
@@ -321,19 +316,10 @@ public:
 
   /**
        *
-       * @return
-       */
-  virtual bool startBatchIntegration() {
-    _batch_integration = true;
-    _current_integration_map.clear();
-    return true;
-  }
-
-  /**
-       *
        * @param voxels
        */
-  virtual void fetchVoxels(std::vector<Voxel3D> &voxels) {
+  virtual void fetchVoxels(std::vector<Voxel3D> &voxels)
+  {
     voxels.clear();
     std::vector<typename X_NODE::NodeType *> xnodes;
     _root_list->retrieveNodes(xnodes);
@@ -343,16 +329,19 @@ public:
       std::vector<Voxel3D> voxels_private;
 
 #pragma omp for nowait
-      for (int i = 0; i < xnodes.size(); i++) {
+      for (int i = 0; i < xnodes.size(); i++)
+      {
         K ix, iy, iz;
         D x, y, z;
         std::vector<typename Y_NODE::NodeType *> ynodes;
         xnodes[i]->value->retrieveNodes(ynodes);
-        for (int j = 0; j < ynodes.size(); j++) {
+        for (int j = 0; j < ynodes.size(); j++)
+        {
           std::vector<typename Z_NODE::NodeType *> znodes;
           ynodes[j]->value->retrieveNodes(znodes);
 
-          for (int k = 0; k < znodes.size(); k++) {
+          for (int k = 0; k < znodes.size(); k++)
+          {
             ix = xnodes[i]->key;
             iy = ynodes[j]->key;
             iz = znodes[k]->key;
@@ -380,7 +369,8 @@ public:
        * @param boxed
        */
   virtual void radiusSearch(K cx, K cy, K cz, K radiusx, K radiusy, K radiusz,
-                            std::vector<Voxel3D> &voxels, bool boxed = false) {
+                            std::vector<Voxel3D> &voxels, bool boxed = false)
+  {
     voxels.clear();
     std::vector<typename X_NODE::NodeType *> xnodes;
 
@@ -405,22 +395,26 @@ public:
       std::vector<Voxel3D> voxels_private;
 
 #pragma omp for nowait
-      for (int i = 0; i < xnodes.size(); i++) {
+      for (int i = 0; i < xnodes.size(); i++)
+      {
         K ix, iy, iz;
         D x, y, z;
         D distance;
         std::vector<typename Y_NODE::NodeType *> ynodes;
         xnodes[i]->value->retrieveNodesByRange(iy_min, iy_max, ynodes);
-        for (int j = 0; j < ynodes.size(); j++) {
+        for (int j = 0; j < ynodes.size(); j++)
+        {
           std::vector<typename Z_NODE::NodeType *> znodes;
           ynodes[j]->value->retrieveNodesByRange(iz_min, iz_max, znodes);
           ix = xnodes[i]->key;
           iy = ynodes[j]->key;
 
-          for (int k = 0; k < znodes.size(); k++) {
+          for (int k = 0; k < znodes.size(); k++)
+          {
             iz = znodes[k]->key;
             indexToCoordinates(ix, iy, iz, x, y, z);
-            if (!boxed) {
+            if (!boxed)
+            {
               distance = sqrt(pow(centerx - x, 2) + pow(centery - y, 2) +
                               pow(centerz - z, 2));
               if (distance > radius)
@@ -448,9 +442,11 @@ public:
        * @param boxed
        */
   virtual void radiusSearch(D cx, D cy, D cz, D radiusx, D radiusy, D radiusz,
-                            std::vector<Voxel3D> &voxels, bool boxed = false) {
+                            std::vector<Voxel3D> &voxels, bool boxed = false)
+  {
     K ix, iy, iz;
-    if (coordinatesToIndex(cx, cy, cz, ix, iy, iz)) {
+    if (coordinatesToIndex(cx, cy, cz, ix, iy, iz))
+    {
       K iradiusx, iradiusy, iradiusz;
       iradiusx = K(floor(radiusx / _resolution_x));
       iradiusy = K(floor(radiusy / _resolution_y));
@@ -469,7 +465,8 @@ public:
        *
        * @param filename
        */
-  virtual void saveToFile(std::string filename) {
+  virtual void saveToFile(std::string filename)
+  {
     std::vector<Voxel3D> voxels;
     fetchVoxels(voxels);
 
@@ -484,7 +481,8 @@ public:
     f << _resolution_x << " ";
     f << _resolution_y << " ";
     f << _resolution_z << std::endl;
-    for (int i = 0; i < voxels.size(); i++) {
+    for (int i = 0; i < voxels.size(); i++)
+    {
       f << voxels[i] << std::endl;
     }
     f.close();
@@ -492,21 +490,25 @@ public:
 
   /**
        */
-  virtual void loadFromFile(std::string filename) {
+  virtual void loadFromFile(std::string filename)
+  {
     std::ifstream input_file(filename.c_str());
-    if (input_file.is_open()) {
+    if (input_file.is_open())
+    {
     }
     // Load Files
     std::string line;
 
     bool header_found = false;
 
-    while (std::getline(input_file, line)) {
+    while (std::getline(input_file, line))
+    {
       std::istringstream iss(line);
       if (line.length() > 0 && line.at(0) == '#')
         continue;
 
-      if (!header_found) {
+      if (!header_found)
+      {
         K min, max;
         iss >> min;
         iss >> max;
@@ -518,7 +520,8 @@ public:
         continue;
       }
 
-      if (header_found) {
+      if (header_found)
+      {
         Voxel3D voxel;
         iss >> voxel;
         this->integrateVoxel(voxel.x, voxel.y, voxel.z, voxel.data);
@@ -526,11 +529,13 @@ public:
     }
   }
 
-  virtual void enableConcurrencyAccess(bool status = true) {
+  virtual void enableConcurrencyAccess(bool status = true)
+  {
     this->_self_concurrency_management = status;
   }
 
-  virtual bool hasConcurrencyAccess() {
+  virtual bool hasConcurrencyAccess()
+  {
     return this->_self_concurrency_management;
   }
 
@@ -544,16 +549,21 @@ protected:
        * @return
        */
   bool _integrateXNode(const typename X_NODE::NodeType *ylist, K &iy, K &iz,
-                       V *data) {
+                       V *data)
+  {
     const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
-    if (zlist == NULL) {
+    if (zlist == NULL)
+    {
       zlist = ylist->value->insert(
           iy, new Z_NODE(_min_index_value, _max_index_value));
     }
     const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
-    if (voxel == NULL) {
+    if (voxel == NULL)
+    {
       voxel = zlist->value->insert(iz, new V(data));
-    } else {
+    }
+    else
+    {
       *(voxel->value) = *(voxel->value) + *data;
     }
     return true;
@@ -569,10 +579,8 @@ protected:
   int _xlist_counter;
   int _ylist_counter;
   long _bytes_counter;
-  bool _batch_integration;
   bool _initialized;
   bool _self_concurrency_management;
-  IntegrationMap _current_integration_map;
 
   // concurrency
   boost::mutex mutex_map_mutex;

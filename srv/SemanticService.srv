@@ -1,0 +1,17 @@
+string map_name
+geometry_msgs/Pose sensor_pose
+geometry_msgs/Point[] points
+int16[] labels
+float32[] weights
+int8 action
+
+int8 ACTION_INTEGRATE = 0
+int8 ACTION_RESET = 100
+
+---
+int32 integrated_points
+int8 status 
+
+
+int8 STATUS_OK=0
+int8 STATUS_FAIL=10

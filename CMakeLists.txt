@@ -27,6 +27,7 @@ include_directories(${catkin_INCLUDE_DIRS})
 add_service_files(
   FILES
   SkimapIntegrationService.srv
+  SemanticService.srv
 )
 
 generate_messages(
@@ -95,40 +96,6 @@ include_directories(
   include/
 )
 
-#########################
-# GRID EXPERIMENTS
-#########################
-
-# find_package(PCL REQUIRED)
-# include_directories(${PCL_INCLUDE_DIRS})
-# link_directories(${PCL_LIBRARY_DIRS})
-# add_definitions(${PCL_DEFINITIONS})
-
-# set(ANN_INCLUDE_DIRS /home/daniele/work/workspace_cpp/ann_1.1.2/include)
-# set(ANN_LIBRARIES /home/daniele/work/workspace_cpp/ann_1.1.2/lib/libANN.a)
-
-# include_directories(${ANN_INCLUDE_DIRS})
-# add_executable(grid2d src/nodes/experiments/grid2d.cpp)
-# target_link_libraries(grid2d 
-#   ${ANN_LIBRARIES}
-#   ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
-
-# add_executable(kd_test src/nodes/experiments/kd_test.cpp)  
-# target_link_libraries(kd_test 
-# ${ANN_LIBRARIES}
-# ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
-  
-# add_executable(octree_test src/nodes/experiments/octree_test.cpp)  
-# target_link_libraries(octree_test 
-# ${ANN_LIBRARIES}
-# ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
-
-# add_executable(debug src/nodes/experiments/debug.cpp)  
-# target_link_libraries(debug 
-# ${ANN_LIBRARIES}
-# ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
-
-
   
 
 #########################
@@ -143,6 +110,10 @@ target_link_libraries(skimap_live ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 add_executable(skimap_map_service src/nodes/skimap_map_service.cpp)
 target_link_libraries(skimap_map_service ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 add_dependencies(skimap_map_service skimap_ros_generate_messages_cpp)
+
+add_executable(skimap_semantic_map_service src/nodes/skimap_semantic_map_service.cpp)
+target_link_libraries(skimap_semantic_map_service ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+add_dependencies(skimap_semantic_map_service skimap_ros_generate_messages_cpp)
 
 
 

@@ -137,16 +137,6 @@ class SkipListDense
         {
             delete this->_dense_nodes[i];
         }
-
-        // NodeType *curr_node = header_node_->forwards[1];
-        // while (curr_node != tail_node_)
-        // {
-        //     NodeType *tempNode = curr_node;
-        //     curr_node = curr_node->forwards[1];
-        //     delete tempNode;
-        // }
-        // delete header_node_;
-        // delete tail_node_;
     }
 
     long _convertKey(K key)

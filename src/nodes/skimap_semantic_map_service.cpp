@@ -35,6 +35,8 @@
 
 // Skimap
 #include <skimap/SkiMap.hpp>
+#include <skimap/OctreeMap.hpp>
+#include <skimap/InceptionQuadTree.hpp>
 #include <skimap/voxels/VoxelDataRGBW.hpp>
 #include <skimap/voxels/VoxelDataMultiLabel.hpp>
 #include <skimap_ros/SkimapIntegrationService.h>
@@ -105,7 +107,13 @@ typedef skimap::VoxelDataMultiLabel<20, LabelType, WeightType> VoxelDataLabels;
 
 typedef skimap::SkiMap<VoxelDataLabels, int16_t, float> SKIMAP;
 typedef skimap::SkiMap<VoxelDataLabels, int16_t, float>::Voxel3D Voxel3D;
-typedef skimap::SkiMap<VoxelDataLabels, int16_t, float>::Tiles2D Tiles2D;
+
+// typedef skimap::Octree<VoxelDataLabels, float, 13> SKIMAP;
+// typedef skimap::Octree<VoxelDataLabels, float, 13>::Voxel3D Voxel3D;
+
+// typedef skimap::InceptionQuadTree<VoxelDataLabels, uint16_t, float, 16> SKIMAP;
+// typedef skimap::InceptionQuadTree<VoxelDataLabels, uint16_t, float, 16>::Voxel3D Voxel3D;
+
 SKIMAP *map;
 
 // Ros
@@ -275,6 +283,7 @@ bool integration_service_callback(
   std::vector<IntegrationPoint> integration_points(req.points.size());
   std::vector<int> integration_counter(req.points.size());
 
+  ROS_INFO_STREAM("POSE: " << v.x() << "," << v.y() << "," << v.z());
   if (!(req.labels.size() == req.points.size() && req.points.size() == req.weights.size()))
   {
     ROS_ERROR_STREAM("Request invalid! Number of Points doesn't match with number of Labels! (or even Weights!)");
@@ -288,6 +297,8 @@ bool integration_service_callback(
     double y = req.points[i].y;
     double z = req.points[i].z;
     if (z < map_service_parameters.camera_min_z)
+      continue;
+    if (req.labels[i] == 255)
       continue;
     tf::Vector3 base_to_point(x, y, z);
     base_to_point = base_to_camera * base_to_point;
@@ -315,6 +326,7 @@ bool integration_service_callback(
   timings.printTime("Prepare");
 
   timings.startTimer("Integration");
+
   integrateVoxels(integration_points);
   timings.printTime("Integration");
   res.integrated_points = int(integration_points.size());
@@ -334,13 +346,13 @@ int main(int argc, char **argv)
 {
 
   // Initialize ROS
-  ros::init(argc, argv, "skimap_map_service");
+  ros::init(argc, argv, "skimap_semantic_map_service");
   nh = new ros::NodeHandle("~");
   tf_listener = new tf::TransformListener();
 
   // Frames
-  nh->param<std::string>("base_frame_name", base_frame_name, "world");
-  nh->param<std::string>("camera_frame_name", camera_frame_name, "camera");
+  nh->param<std::string>("base_frame_name", base_frame_name, "camera");
+  nh->param<std::string>("camera_frame_name", camera_frame_name, "camera_rf");
 
   // Map Publisher
   std::string map_topic = nh->param<std::string>("map_topic", "live_map");
@@ -359,10 +371,10 @@ int main(int argc, char **argv)
 
   // SkiMap
   nh->param<float>("camera_max_z", map_service_parameters.camera_max_z, 1.5f);
-  nh->param<float>("map_resolution", map_service_parameters.map_resolution, 0.05f);
-  nh->param<float>("ground_level", map_service_parameters.ground_level, 0.15f);
+  nh->param<float>("map_resolution", map_service_parameters.map_resolution, 0.15f);
+  nh->param<float>("ground_level", map_service_parameters.ground_level, 0.00f);
   nh->param<float>("camera_min_z", map_service_parameters.camera_min_z, 0.01f);
-  nh->param<int>("min_voxel_weight", map_service_parameters.min_voxel_weight, 10);
+  nh->param<int>("min_voxel_weight", map_service_parameters.min_voxel_weight, 1);
   nh->param<float>("height_color_step", map_service_parameters.height_color_step, 0.5f);
   nh->param<bool>("height_color", map_service_parameters.height_color_enabled, false);
   nh->param<std::string>("height_axis", map_service_parameters.height_axis, "z");
@@ -375,7 +387,6 @@ int main(int argc, char **argv)
   // Spin
   while (nh->ok())
   {
-
     /**
     * 3D Map Publisher
     */

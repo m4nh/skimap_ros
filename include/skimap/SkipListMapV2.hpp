@@ -540,34 +540,6 @@ public:
   }
 
 protected:
-  /**
-       *
-       * @param ylist
-       * @param iy
-       * @param iz
-       * @param data
-       * @return
-       */
-  bool _integrateXNode(const typename X_NODE::NodeType *ylist, K &iy, K &iz,
-                       V *data)
-  {
-    const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
-    if (zlist == NULL)
-    {
-      zlist = ylist->value->insert(
-          iy, new Z_NODE(_min_index_value, _max_index_value));
-    }
-    const typename Z_NODE::NodeType *voxel = zlist->value->find(iz);
-    if (voxel == NULL)
-    {
-      voxel = zlist->value->insert(iz, new V(data));
-    }
-    else
-    {
-      *(voxel->value) = *(voxel->value) + *data;
-    }
-    return true;
-  }
 
   Index _max_index_value;
   Index _min_index_value;

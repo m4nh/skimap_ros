@@ -56,7 +56,7 @@ launch the example you have to run two separate commands:
 
 
 ```
-1) roslaunch skimap_ros slamdunk_tracker.launch
+1) roslaunch skimap_ros skimap_live.launch
 2) rosbag play tiago_lar.bag --clock
 ```
 

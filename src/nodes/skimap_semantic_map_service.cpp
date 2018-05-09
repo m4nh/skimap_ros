@@ -43,25 +43,25 @@
 #include <skimap_ros/SemanticService.h>
 
 std::vector<cv::Scalar> labels_color_map = {
-    cv::Scalar(119, 11, 32),
-    cv::Scalar(150, 100, 100),
-    cv::Scalar(70, 70, 70),
-    cv::Scalar(0, 60, 100),
-    cv::Scalar(0, 0, 142),
-    cv::Scalar(190, 153, 153),
-    cv::Scalar(0, 0, 230),
-    cv::Scalar(220, 20, 60),
-    cv::Scalar(153, 153, 153),
-    cv::Scalar(255, 0, 0),
     cv::Scalar(128, 64, 128),
     cv::Scalar(244, 35, 232),
-    cv::Scalar(70, 130, 180),
-    cv::Scalar(107, 142, 35),
+    cv::Scalar(70, 70, 70),
+    cv::Scalar(102, 102, 156),
+    cv::Scalar(190, 153, 153),
+    cv::Scalar(153, 153, 153),
     cv::Scalar(250, 170, 30),
     cv::Scalar(220, 220, 0),
+    cv::Scalar(107, 142, 35),
+    cv::Scalar(152, 251, 152),
+    cv::Scalar(70, 130, 180),
+    cv::Scalar(220, 20, 60),
+    cv::Scalar(255, 0, 0),
+    cv::Scalar(0, 0, 142),
     cv::Scalar(0, 0, 70),
-    cv::Scalar(150, 120, 90),
-    cv::Scalar(102, 102, 156)};
+    cv::Scalar(0, 60, 100),
+    cv::Scalar(0, 80, 100),
+    cv::Scalar(0, 0, 230),
+    cv::Scalar(119, 11, 32)};
 
 /**
  */

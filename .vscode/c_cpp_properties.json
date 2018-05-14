@@ -5,7 +5,7 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
-                "/opt/ros/indigo/include",
+                "/opt/ros/kinetic/include",
                 "../devel/include",
                 "${workspaceRoot}"
             ],
@@ -15,7 +15,7 @@
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
-                    "/opt/ros/indigo/include",
+                    "/opt/ros/kinetic/include",
                     "../devel/include",
                     "${workspaceRoot}"
                 ]
@@ -31,9 +31,12 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
-                "/opt/ros/indigo/include",
+                "/opt/ros/kinetic/include",
                 "../devel/include",
-                "${workspaceRoot}"
+                "${workspaceRoot}",
+                "/opt/ros/kinetic/include/opencv-3.3.1-dev",
+                "/usr/include/eigen3",
+                "${workspaceFolder}/include"
             ],
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
@@ -41,7 +44,7 @@
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
-                    "/opt/ros/indigo/include",
+                    "/opt/ros/kinetic/include",
                     "../devel/include",
                     "${workspaceRoot}"
                 ]

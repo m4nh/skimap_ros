@@ -134,19 +134,18 @@ endif(BUILD_TUTORIALS)
 
 add_executable(kd_test src/nodes/experiments/kd_test.cpp)
 # target_link_libraries(kd_test ann)
-target_link_libraries(kd_test ${OpenCV_LIBRARIES} boost_system)
+target_link_libraries(kd_test ${OpenCV_LIBRARIES})
 
 # add_dependencies(kd_test skimap_ros_generate_messages_cpp)
 
+
 include_directories(/home/daniele/work/workspace_cpp/octomap/octomap/include)
 ADD_LIBRARY(octomap SHARED IMPORTED)
-SET_TARGET_PROPERTIES(octomap PROPERTIES IMPORTED_LOCATION /home/daniele/work/workspace_cpp/octomap/octomap/lib/liboctomap.so )
-ADD_LIBRARY(octomath SHARED IMPORTED)
-SET_TARGET_PROPERTIES(octomath PROPERTIES IMPORTED_LOCATION /home/daniele/work/workspace_cpp/octomap/octomap/lib/liboctomath.so )
+SET_TARGET_PROPERTIES(octomap PROPERTIES IMPORTED_LOCATION /home/daniele/work/workspace_cpp/octomap/octomap/lib/liboctomap.so)
 
 
 add_executable(comparison_test src/nodes/experiments/comparisons/comparison_test.cpp)
-target_link_libraries(comparison_test octomap octomath ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(comparison_test octomap ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 
 

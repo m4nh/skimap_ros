@@ -46,6 +46,12 @@ public:
     }
   };
 
+  struct IntegrationEntry
+  {
+    std::vector<ColorPoint> points;
+    geometry_msgs::Pose camera_pose;
+  };
+
   /**
    *
    */
@@ -152,6 +158,6 @@ protected:
     }
   }
 };
-}
+} // namespace skimap_ros
 
 #endif /* SKIMAPSERVICECLIENT_HPP */

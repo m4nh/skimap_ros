@@ -41,6 +41,9 @@
         "condition_variable": "cpp",
         "memory": "cpp",
         "mutex": "cpp",
-        "system_error": "cpp"
-    }
+        "system_error": "cpp",
+        "core": "cpp",
+        "numericaldiff": "cpp"
+    },
+    "C_Cpp.intelliSenseEngineFallback": "Disabled"
 }

@@ -23,7 +23,6 @@
 #include "sys/types.h"
 #include "sys/sysinfo.h"
 
-#include <ANN/ANN.h> // ANN declarations
 #include <flann/flann.hpp>
 
 //Eigen
@@ -96,8 +95,8 @@ bool checkPresence(std::vector<std::vector<CoordinatesType>> &search_data, std::
 }
 void process_mem_usage(double &vm_usage, double &resident_set)
 {
-  using std::ios_base;
   using std::ifstream;
+  using std::ios_base;
   using std::string;
 
   vm_usage = 0.0;

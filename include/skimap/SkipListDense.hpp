@@ -19,8 +19,11 @@
 class spinlock
 {
   private:
-    typedef enum { Locked,
-                   Unlocked } LockState;
+    typedef enum
+    {
+        Locked,
+        Unlocked
+    } LockState;
     boost::atomic<LockState> state_;
 
   public:
@@ -38,8 +41,28 @@ class spinlock
         state_.store(Unlocked, boost::memory_order_release);
     }
 };
+class SpinLockV2
+{
+    boost::atomic_flag flag;
+
+  public:
+    void lock()
+    {
+        while (flag.test_and_set(boost::memory_order_acquire))
+            ;
+    }
+    bool try_lock()
+    {
+        return !flag.test_and_set(boost::memory_order_acquire);
+    }
+    void unlock()
+    {
+        flag.clear(boost::memory_order_release);
+    }
+};
 
 typedef spinlock Lock;
+//typedef SpinLockV2 Lock;
 
 namespace skimap
 {
@@ -154,6 +177,7 @@ class SkipListDense
         long inner_key = _convertKey(key);
         if (checkInnerKey(inner_key))
         {
+            //boost::lock_guard<Lock> l(this->_mutex_array[inner_key]);
             this->_mutex_array[inner_key].lock();
         }
     }
@@ -407,6 +431,6 @@ class SkipListDense
     NodeType **_dense_nodes;
     Lock *_mutex_array;
 };
-}
+} // namespace skimap
 
 #endif /* SKIPLISTDENSE_HPP */

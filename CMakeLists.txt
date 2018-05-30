@@ -57,7 +57,7 @@ endif(OPENMP_FOUND)
 find_package(Eigen3 REQUIRED)
 
 #OpenCV
-find_package(OpenCV REQUIRED COMPONENTS core imgproc flann highgui)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc flann highgui )
 if(OpenCV_INCLUDE_DIRS)
   include_directories(${OpenCV_INCLUDE_DIRS})
 endif(OpenCV_INCLUDE_DIRS)
@@ -153,8 +153,16 @@ target_link_libraries(kd_test ${OpenCV_LIBRARIES} boost_system)
 # add_executable(comparison_test src/nodes/experiments/comparisons/comparison_test.cpp)
 # target_link_libraries(comparison_test octomap octomath ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
+################################################################################
+# SITECO EXPERIMENTS
+################################################################################
+################################################################################
+
 add_executable(raycasting_test src/nodes/experiments/raycasting/raycasting_test.cpp)
 target_link_libraries(raycasting_test ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+
+add_executable(raycasting_test_click src/nodes/experiments/raycasting/raycasting_test_click.cpp)
+target_link_libraries(raycasting_test_click ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 ###############################################################################
 # INSTALLATION

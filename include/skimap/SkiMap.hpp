@@ -34,6 +34,7 @@ class SkiMap : public SkipListMapV2<V, K, D, X_DEPTH, Y_DEPTH, Z_DEPTH>
 public:
   typedef GenericTile2D<V, D> Tiles2D;
   typedef SkipListMapV2<V, K, D, X_DEPTH, Y_DEPTH, Z_DEPTH> ParentMap;
+  // typedef SkipListMapV2<V, K, D, X_DEPTH, Y_DEPTH, Z_DEPTH>::Voxel3D Voxel3D;
   typedef typename ParentMap::X_NODE X_NODE;
   typedef typename ParentMap::Y_NODE Y_NODE;
   typedef typename ParentMap::Z_NODE Z_NODE;
@@ -202,6 +203,6 @@ protected:
   D _zero_level;
   K _zero_level_key;
 };
-}
+} // namespace skimap
 
 #endif /* SKIMAP_HPP */

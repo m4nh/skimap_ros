@@ -63,7 +63,7 @@ if(OpenCV_INCLUDE_DIRS)
 endif(OpenCV_INCLUDE_DIRS)
 
 #BOOST
-find_package(Boost 1.50.0 REQUIRED COMPONENTS random timer system)
+find_package(Boost 1.50.0 REQUIRED COMPONENTS random timer system python)
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIR}) # cached
 endif(Boost_FOUND)
@@ -115,6 +115,11 @@ add_executable(skimap_semantic_map_service src/nodes/skimap_semantic_map_service
 target_link_libraries(skimap_semantic_map_service ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 add_dependencies(skimap_semantic_map_service skimap_ros_generate_messages_cpp)
 
+add_executable(skimap_semantic_map_service_playground src/nodes/skimap_semantic_map_service_playground.cpp)
+target_link_libraries(skimap_semantic_map_service_playground ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+add_dependencies(skimap_semantic_map_service_playground skimap_ros_generate_messages_cpp)
+
+
 
 
 if(BUILD_TUTORIALS)
@@ -138,17 +143,18 @@ target_link_libraries(kd_test ${OpenCV_LIBRARIES} boost_system)
 
 # add_dependencies(kd_test skimap_ros_generate_messages_cpp)
 
-include_directories(/home/daniele/work/workspace_cpp/octomap/octomap/include)
-ADD_LIBRARY(octomap SHARED IMPORTED)
-SET_TARGET_PROPERTIES(octomap PROPERTIES IMPORTED_LOCATION /home/daniele/work/workspace_cpp/octomap/octomap/lib/liboctomap.so )
-ADD_LIBRARY(octomath SHARED IMPORTED)
-SET_TARGET_PROPERTIES(octomath PROPERTIES IMPORTED_LOCATION /home/daniele/work/workspace_cpp/octomap/octomap/lib/liboctomath.so )
+# include_directories(/home/daniele/work/workspace_cpp/octomap/octomap/include)
+# ADD_LIBRARY(octomap SHARED IMPORTED)
+# SET_TARGET_PROPERTIES(octomap PROPERTIES IMPORTED_LOCATION /home/daniele/work/workspace_cpp/octomap/octomap/lib/liboctomap.so )
+# ADD_LIBRARY(octomath SHARED IMPORTED)
+# SET_TARGET_PROPERTIES(octomath PROPERTIES IMPORTED_LOCATION /home/daniele/work/workspace_cpp/octomap/octomap/lib/liboctomath.so )
 
 
-add_executable(comparison_test src/nodes/experiments/comparisons/comparison_test.cpp)
-target_link_libraries(comparison_test octomap octomath ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+# add_executable(comparison_test src/nodes/experiments/comparisons/comparison_test.cpp)
+# target_link_libraries(comparison_test octomap octomath ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
-
+add_executable(raycasting_test src/nodes/experiments/raycasting/raycasting_test.cpp)
+target_link_libraries(raycasting_test ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
 
 ###############################################################################
 # INSTALLATION

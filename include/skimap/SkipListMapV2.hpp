@@ -23,6 +23,8 @@
 
 #define SkipListMapV2_MAX_DEPTH 16
 
+#define THREAD_SAFE
+
 namespace skimap
 {
 
@@ -37,7 +39,7 @@ class SkipListMapV2
 {
 public:
   typedef GenericVoxel3D<V, D> Voxel3D;
-
+  typedef V VoxelData;
   typedef K Index;
   typedef SkipList<Index, V *, Z_DEPTH> Z_NODE;
   typedef SkipList<Index, Z_NODE *, Y_DEPTH> Y_NODE;
@@ -120,9 +122,9 @@ public:
   virtual bool isValidIndex(K ix, K iy, K iz)
   {
     bool result = true;
-    result &= ix <= _max_index_value && ix >= _min_index_value;
-    result &= iy <= _max_index_value && iy >= _min_index_value;
-    result &= iz <= _max_index_value && iz >= _min_index_value;
+    result &= ix < _max_index_value && ix > _min_index_value;
+    result &= iy < _max_index_value && iy > _min_index_value;
+    result &= iz < _max_index_value && iz > _min_index_value;
     return result;
   };
 
@@ -278,8 +280,10 @@ public:
     if (isValidIndex(ix, iy, iz))
     {
 
+#ifdef THREAD_SAFE
       if (this->hasConcurrencyAccess())
         this->_root_list->lock(ix);
+#endif
 
       const typename X_NODE::NodeType *ylist = _root_list->find(ix);
       if (ylist == NULL)
@@ -307,9 +311,11 @@ public:
         *(voxel->value) = *(voxel->value) + *data;
       }
 
+#ifdef THREAD_SAFE
       if (this->hasConcurrencyAccess())
         this->_root_list->unlock(ix);
       return true;
+#endif
     }
     return false;
   }
@@ -540,7 +546,6 @@ public:
   }
 
 protected:
-
   Index _max_index_value;
   Index _min_index_value;
   X_NODE *_root_list;
@@ -558,6 +563,6 @@ protected:
   boost::mutex mutex_map_mutex;
   std::map<K, boost::mutex *> mutex_map;
 };
-}
+} // namespace skimap
 
 #endif /* SkipListMapV2_HPP */

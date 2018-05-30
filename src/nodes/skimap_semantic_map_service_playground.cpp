@@ -222,10 +222,6 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
     {
       lc = labels_color_map[l];
     }
-    else
-    {
-      lc = labels_color_map[l % int(labels_color_map.size())];
-    }
 
     // if (l != 10)
     // {
@@ -350,7 +346,7 @@ int main(int argc, char **argv)
 {
 
   // Initialize ROS
-  ros::init(argc, argv, "skimap_semantic_map_service");
+  ros::init(argc, argv, "skimap_semantic_map_service_playground");
   nh = new ros::NodeHandle("~");
   tf_listener = new tf::TransformListener();
 
@@ -405,7 +401,6 @@ int main(int argc, char **argv)
       visualization_msgs::Marker map_marker = createVisualizationMarker(
           base_frame_name, ros::Time::now(),
           1, voxels, map_service_parameters.min_voxel_weight);
-
       map_publisher.publish(map_marker);
     }
 

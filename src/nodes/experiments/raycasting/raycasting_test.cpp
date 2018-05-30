@@ -106,7 +106,8 @@ ros::NodeHandle *nh;
 //Globals
 float map_resolution = 0.1;
 double center_x = 679919.953, center_y = 4931904.674, center_z = 89.178;
-Eigen::MatrixXd camera_extrinsics, camera_pose;
+
+Eigen::MatrixXd camera_extrinsics, camera_pose, camera_orientation;
 //double center_x = 0, center_y = 0, center_z = 0;
 
 std::vector<std::string> findFilesInFolder(std::string folder, std::string tag, std::string ext, bool ordered = true)
@@ -312,7 +313,7 @@ int rows = 2048;
 int cols = 2448;
 int center_row = rows / 2;
 int center_col = cols / 2;
-int crop = 1000;
+int crop = 300;
 Ray *rays = new Ray[rows * cols];
 
 Ray &getRay(int r, int c)
@@ -364,6 +365,58 @@ void loadRaysLutBinary(std::string rays_lut_path)
     ROS_INFO_STREAM("RayV: " << ray2);
 }
 
+void ladybugConversion(int x, int y, int &u, int &v)
+{
+    u = rows - x;
+    v = y;
+}
+
+void ladybugConversionInv(int u, int v, int &x, int &y)
+{
+    x = rows - u;
+    y = v;
+}
+
+struct Remap
+{
+    int u, v;
+    void set(int u, int v)
+    {
+        this->u = u;
+        this->v = v;
+    }
+    void get(int &u, int &v)
+    {
+        u = this->u;
+        v = this->v;
+    }
+};
+
+Remap *remap_r2u = new Remap[rows * cols];
+Remap *remap_u2r = new Remap[rows * cols];
+
+Remap &getRemap(Remap *&map, int r, int c)
+{
+    return map[r * cols + c];
+}
+
+void rectifyMapLut(std::string rect_lut_path)
+{
+    Eigen::MatrixXd rectify_lut;
+    loadFromFile(rect_lut_path, rectify_lut, 4);
+    ROS_INFO_STREAM("Rect LUT: " << rectify_lut.rows() << "," << rectify_lut.cols());
+
+    for (int i = 0; i < rectify_lut.rows(); i++)
+    {
+        int rr = rectify_lut(i, 0);
+        int rc = rectify_lut(i, 1);
+        int ur = rectify_lut(i, 2);
+        int uc = rectify_lut(i, 3);
+        getRemap(remap_r2u, rr, rc).set(ur, uc);
+        getRemap(remap_u2r, ur, uc).set(rr, rc);
+    }
+}
+
 void loadBinary(std::string dataset_path, std::vector<Eigen::MatrixXd> &points)
 {
     std::vector<std::string> files = findFilesInFolder(dataset_path, "DUCATI", ".bin");
@@ -399,6 +452,22 @@ void integrateSkimapSimple(Eigen::MatrixXd &points)
     }
 }
 
+struct Click
+{
+    int x, y;
+} currentClick;
+
+static void onMouse(int event, int x, int y, int, void *)
+{
+
+    if (event != cv::EVENT_LBUTTONDOWN)
+        return;
+
+    currentClick.x = x;
+    currentClick.y = y;
+
+    ROS_INFO_STREAM("Clcik: " << x << "," << y);
+}
 /**
  *
  * @param argc
@@ -421,15 +490,32 @@ int main(int argc, char **argv)
 
     std::string dataset_path = nh->param<std::string>("dataset_path", "/home/daniele/data/datasets/siteco/DucatiEXP");
     std::string rays_lut_path = nh->param<std::string>("rays_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/raysLut.txt.bin");
+    std::string rect_lut_path = nh->param<std::string>("rect_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/unrectifyLut.txt");
     std::string camera_extrinsics_path = nh->param<std::string>("camera_extrinsics_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.extrinsics.txt");
+    std::string image_path_unrect = nh->param<std::string>("image_path_unrect", "/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_0/Frame_F_0.jpg");
+    std::string image_path = nh->param<std::string>("image_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/temp/ladybug_20180426_153744_517612_Rectified_Cam0_1224x1024.bmp");
+
     ROS_INFO_STREAM("Path: " << dataset_path);
     ROS_INFO_STREAM("Path: " << rays_lut_path);
 
     //Camera extrinsics
 
+    cv::Mat img = cv::imread(image_path);
+    cv::Mat imgunrect = cv::imread(image_path_unrect);
+    cv::namedWindow("debug", cv::WINDOW_NORMAL);
+    cv::namedWindow("image", cv::WINDOW_NORMAL);
+    cv::setMouseCallback("image", onMouse, 0);
+
+    cv::namedWindow("imageunrect", cv::WINDOW_NORMAL);
+
     loadFromFile(camera_extrinsics_path, camera_extrinsics, 4);
-    loadFromFile("/tmp/ciao.txt", camera_pose, 4);
+    loadFromFile("/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/temp/sample_pose.txt", camera_pose, 4);
+    camera_orientation = Eigen::Matrix4d::Identity();
+    camera_orientation.block(0, 0, 3, 3) = camera_pose.block(0, 0, 3, 3);
     ROS_INFO_STREAM("Camera ext:" << camera_extrinsics.inverse());
+
+        //RectyLUT
+    rectifyMapLut(rect_lut_path);
 
     //RAYS
     //loadRaysLutTXT(rays_lut_path);
@@ -465,35 +551,50 @@ int main(int argc, char **argv)
     // Spin
     while (nh->ok())
     {
-        visualization_msgs::Marker voxelMarker = createVisualizationMarker("world", ros::Time::now(), 10, voxels, map_resolution, 0);
-
-        timings.startTimer("ray");
-        std::vector<Voxel3D> ray_voxels;
 
         int succ = 0;
         // for (int r = center_row - crop; r < center_row + crop; r += 10)
         // {
         //     for (int c = center_col - crop; c < center_col + crop; c += 10)
         //     {
+        double max_distance = 50.0;
+        cv::Mat depth = cv::Mat::zeros(img.size(), CV_8UC3);
+        std::vector<Voxel3D> ray_voxels;
+        timings.startTimer("ray");
+
+        Ray &start_ray = getRay(0, 0);
+        Eigen::Vector4d center = camera_pose * start_ray.center;
+        ROS_INFO_STREAM("Cam: " << camera_pose(0, 3) << "," << camera_pose(1, 3) << "," << camera_pose(2, 3));
+        ROS_INFO_STREAM("Ray: " << center(0) << "," << center(1) << "," << center(2));
 
 #pragma omp parallel for schedule(static)
-        for (int r = 0; r < rows; r += 1)
+        // for (int r = 0; r < rows; r += 1)
+        // {
+        //     for (int c = 0; c < cols; c += 1)
+        //     {
+        for (int r = center_row - crop; r < center_row + crop; r += 1)
         {
-            for (int c = 0; c < cols; c += 1)
+            for (int c = center_col - crop; c < center_col + crop; c += 1)
             {
+                int x, y;
+                ladybugConversionInv(r, c, x, y);
+                if (img.at<cv::Vec3b>(y, x) == cv::Vec3b(0, 0, 0))
+                    continue;
 
-                //ROS_INFO_STREAM("RC: " << r << "," << c);
                 Ray &ray = getRay(r, c);
-                Eigen::Vector4d center = camera_pose * ray.center;
-                Eigen::Vector4d direction = camera_pose * ray.direction;
-                // ROS_INFO_STREAM("Ray: " << ray.rz << "," << ray.ry << "," << ray.rz);
+                Eigen::Vector4d direction = camera_orientation * ray.direction;
 
                 Voxel3D v;
-                if (raycaster->intersectVoxel(center, direction, v, 0.1, 30.0))
+                if (raycaster->intersectVoxel(center, direction, v, 0.1, max_distance))
                 {
-
+                    Eigen::Vector4d voxel_center;
+                    voxel_center << v.x, v.y, v.z;
+                    Eigen::Vector4d distance_vector = center - voxel_center;
+                    double distance = distance_vector.norm();
+                    distance = distance / max_distance;
                     voxel_image[r * cols + c] = v;
 
+                    depth.at<cv::Vec3b>(y, x) = cv::Vec3b(distance * 255, distance * 255, distance * 255);
                     succ++;
                 }
                 else
@@ -512,7 +613,72 @@ int main(int argc, char **argv)
                 ray_voxels.push_back(voxel_image[r * cols + c]);
             }
         }
+
+        // timings.startTimer("ray");
+        // std::vector<Voxel3D> ray_voxels;
+        // int u, v;
+        // ladybugConversion(currentClick.x, currentClick.y, u, v);
+        // Ray &ray = getRay(u, v);
+        // Eigen::Vector4d center = camera_pose * ray.center;
+        // Eigen::Vector4d direction = camera_orientation * ray.direction;
+        // Voxel3D voxel;
+        // float max_distance = 130.0;
+        // float delta = 0.1;
+        // int iterations = max_distance / 0.1;
+
+        // for (int i = 0; i < iterations; i++)
+        // {
+        //     Eigen::Vector4d p;
+        //     p = center + direction * (delta * i);
+        //     Voxel3D voxelt;
+        //     voxelt.x = p(0);
+        //     voxelt.y = p(1);
+        //     voxelt.z = p(2);
+        //     voxelt.data = new VoxelData();
+        //     ray_voxels.push_back(voxelt);
+        // }
+
+        // if (raycaster->intersectVoxel(center, direction, voxel, delta, max_distance))
+        // {
+
+        //     ray_voxels.push_back(voxel);
+        // }
+        // else
+        // {
+        //     ROS_INFO_STREAM("Fauil!");
+        // }
+
+        cv::Mat output = img.clone();
+        cv::Mat output_unrect = imgunrect.clone();
+        // cv::circle(output, cv::Point(currentClick.x, currentClick.y), 20, cv::Scalar(255, 0, 0), 2);
+        // cv::circle(output, cv::Point(currentClick.x, currentClick.y), 3, cv::Scalar(255, 0, 0), -1);
+
+        // //Unrectified mapped circle
+        // int clicked_u, clicked_v;
+        // ladybugConversion(currentClick.x, currentClick.y, clicked_u, clicked_v);
+        // int clicked_u_unrect, clicked_v_unrect;
+        // getRemap(remap_r2u, clicked_u, clicked_v).get(clicked_u_unrect, clicked_v_unrect);
+        // int rx, ry;
+        // ladybugConversionInv(clicked_u_unrect, clicked_v_unrect, rx, ry);
+        // cv::circle(output_unrect, cv::Point(rx, ry), 20, cv::Scalar(255, 0, 0), 2);
+        // cv::circle(output_unrect, cv::Point(rx, ry), 3, cv::Scalar(255, 0, 0), -1);
+
+        //IMshow
+        cv::imshow("debug", depth);
+        cv::imshow("image", output);
+        cv::imshow("imageunrect", output_unrect);
+        cv::waitKey(1);
+
+        Eigen::Matrix4d trans;
+        trans = Eigen::Matrix4d::Identity();
+        trans.block(0, 3, 3, 0) << 1.0, 0, 0;
+        Eigen::MatrixXd transX = trans;
+        camera_pose = camera_pose * transX;
+        camera_orientation = Eigen::Matrix4d::Identity();
+        camera_orientation.block(0, 0, 3, 3) = camera_pose.block(0, 0, 3, 3);
+
         visualization_msgs::Marker rayMarker = createVisualizationMarker("world", ros::Time::now(), 10, ray_voxels, map_resolution * 1.01, 0, cv::Scalar(255, 0, 0));
+        visualization_msgs::Marker voxelMarker = createVisualizationMarker("world", ros::Time::now(), 10, voxels, map_resolution, 0);
 
         map_publisher.publish(voxelMarker);
         temp_publisher.publish(rayMarker);

@@ -365,6 +365,58 @@ void loadRaysLutBinary(std::string rays_lut_path)
     ROS_INFO_STREAM("RayV: " << ray2);
 }
 
+void ladybugConversion(int x, int y, int &u, int &v)
+{
+    u = rows - x;
+    v = y;
+}
+
+void ladybugConversionInv(int u, int v, int &x, int &y)
+{
+    x = rows - u;
+    y = v;
+}
+
+struct Remap
+{
+    int u, v;
+    void set(int u, int v)
+    {
+        this->u = u;
+        this->v = v;
+    }
+    void get(int &u, int &v)
+    {
+        u = this->u;
+        v = this->v;
+    }
+};
+
+Remap *remap_r2u = new Remap[rows * cols];
+Remap *remap_u2r = new Remap[rows * cols];
+
+Remap &getRemap(Remap *&map, int r, int c)
+{
+    return map[r * cols + c];
+}
+
+void rectifyMapLut(std::string rect_lut_path)
+{
+    Eigen::MatrixXd rectify_lut;
+    loadFromFile(rect_lut_path, rectify_lut, 4);
+    ROS_INFO_STREAM("Rect LUT: " << rectify_lut.rows() << "," << rectify_lut.cols());
+
+    for (int i = 0; i < rectify_lut.rows(); i++)
+    {
+        int rr = rectify_lut(i, 0);
+        int rc = rectify_lut(i, 1);
+        int ur = rectify_lut(i, 2);
+        int uc = rectify_lut(i, 3);
+        getRemap(remap_r2u, rr, rc).set(ur, uc);
+        getRemap(remap_u2r, ur, uc).set(rr, rc);
+    }
+}
+
 void loadBinary(std::string dataset_path, std::vector<Eigen::MatrixXd> &points)
 {
     std::vector<std::string> files = findFilesInFolder(dataset_path, "DUCATI", ".bin");
@@ -438,9 +490,10 @@ int main(int argc, char **argv)
 
     std::string dataset_path = nh->param<std::string>("dataset_path", "/home/daniele/data/datasets/siteco/DucatiEXP");
     std::string rays_lut_path = nh->param<std::string>("rays_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/raysLut.txt.bin");
+    std::string rect_lut_path = nh->param<std::string>("rect_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/unrectifyLut.txt");
     std::string camera_extrinsics_path = nh->param<std::string>("camera_extrinsics_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.extrinsics.txt");
-    //std::string image_path = nh->param<std::string>("image_path", "/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_0/Frame_F_0.jpg");
-    std::string image_path = nh->param<std::string>("image_path", "/home/daniele/Downloads/ladybug_20180426_153744_517612_Rectified_Cam0_1224x1024.bmp");
+    std::string image_path_unrect = nh->param<std::string>("image_path_unrect", "/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_0/Frame_F_0.jpg");
+    std::string image_path = nh->param<std::string>("image_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/temp/ladybug_20180426_153744_517612_Rectified_Cam0_1224x1024.bmp");
 
     ROS_INFO_STREAM("Path: " << dataset_path);
     ROS_INFO_STREAM("Path: " << rays_lut_path);
@@ -448,14 +501,20 @@ int main(int argc, char **argv)
     //Camera extrinsics
 
     cv::Mat img = cv::imread(image_path);
+    cv::Mat imgunrect = cv::imread(image_path_unrect);
     cv::namedWindow("image", cv::WINDOW_NORMAL);
     cv::setMouseCallback("image", onMouse, 0);
 
+    cv::namedWindow("imageunrect", cv::WINDOW_NORMAL);
+
     loadFromFile(camera_extrinsics_path, camera_extrinsics, 4);
-    loadFromFile("/home/daniele/Desktop/sample_pose.txt", camera_pose, 4);
+    loadFromFile("/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/temp/sample_pose.txt", camera_pose, 4);
     camera_orientation = Eigen::Matrix4d::Identity();
     camera_orientation.block(0, 0, 3, 3) = camera_pose.block(0, 0, 3, 3);
     ROS_INFO_STREAM("Camera ext:" << camera_extrinsics.inverse());
+
+    //RectyLUT
+    rectifyMapLut(rect_lut_path);
 
     //RAYS
     //loadRaysLutTXT(rays_lut_path);
@@ -538,10 +597,12 @@ int main(int argc, char **argv)
 
         timings.startTimer("ray");
         std::vector<Voxel3D> ray_voxels;
-        Ray &ray = getRay(rows - currentClick.x, currentClick.y);
+        int u, v;
+        ladybugConversion(currentClick.x, currentClick.y, u, v);
+        Ray &ray = getRay(u, v);
         Eigen::Vector4d center = camera_pose * ray.center;
         Eigen::Vector4d direction = camera_orientation * ray.direction;
-        Voxel3D v;
+        Voxel3D voxel;
         float max_distance = 130.0;
         float delta = 0.1;
         int iterations = max_distance / 0.1;
@@ -550,18 +611,18 @@ int main(int argc, char **argv)
         {
             Eigen::Vector4d p;
             p = center + direction * (delta * i);
-            Voxel3D v;
-            v.x = p(0);
-            v.y = p(1);
-            v.z = p(2);
-            v.data = new VoxelData();
-            ray_voxels.push_back(v);
+            Voxel3D voxelt;
+            voxelt.x = p(0);
+            voxelt.y = p(1);
+            voxelt.z = p(2);
+            voxelt.data = new VoxelData();
+            ray_voxels.push_back(voxelt);
         }
 
-        if (raycaster->intersectVoxel(center, direction, v, delta, max_distance))
+        if (raycaster->intersectVoxel(center, direction, voxel, delta, max_distance))
         {
 
-            ray_voxels.push_back(v);
+            ray_voxels.push_back(voxel);
         }
         else
         {
@@ -569,10 +630,23 @@ int main(int argc, char **argv)
         }
 
         cv::Mat output = img.clone();
+        cv::Mat output_unrect = imgunrect.clone();
         cv::circle(output, cv::Point(currentClick.x, currentClick.y), 20, cv::Scalar(255, 0, 0), 2);
         cv::circle(output, cv::Point(currentClick.x, currentClick.y), 3, cv::Scalar(255, 0, 0), -1);
 
+        //Unrectified mapped circle
+        int clicked_u, clicked_v;
+        ladybugConversion(currentClick.x, currentClick.y, clicked_u, clicked_v);
+        int clicked_u_unrect, clicked_v_unrect;
+        getRemap(remap_r2u, clicked_u, clicked_v).get(clicked_u_unrect, clicked_v_unrect);
+        int rx, ry;
+        ladybugConversionInv(clicked_u_unrect, clicked_v_unrect, rx, ry);
+        cv::circle(output_unrect, cv::Point(rx, ry), 20, cv::Scalar(255, 0, 0), 2);
+        cv::circle(output_unrect, cv::Point(rx, ry), 3, cv::Scalar(255, 0, 0), -1);
+
+        //IMshow
         cv::imshow("image", output);
+        cv::imshow("imageunrect", output_unrect);
         cv::waitKey(1);
 
         visualization_msgs::Marker rayMarker = createVisualizationMarker("world", ros::Time::now(), 10, ray_voxels, map_resolution * 1.01, 0, cv::Scalar(255, 0, 0));

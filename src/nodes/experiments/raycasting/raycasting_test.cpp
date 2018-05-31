@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cnpy.h>
 
 // EIGEN
 #include <Eigen/Core>
@@ -468,6 +469,16 @@ static void onMouse(int event, int x, int y, int, void *)
 
     ROS_INFO_STREAM("Clcik: " << x << "," << y);
 }
+
+float numpyIndexConversion(cnpy::NpyArray &arr, int i, int j, int k)
+{
+    float *loaded_data = arr.data<float>();
+    int h = arr.shape[0];
+    int w = arr.shape[1];
+    int d = arr.shape[2];
+    return loaded_data[k + j * d + i * d * w];
+}
+
 /**
  *
  * @param argc
@@ -476,6 +487,26 @@ static void onMouse(int event, int x, int y, int, void *)
  */
 int main(int argc, char **argv)
 {
+
+    // DEMO NPY
+
+    // cnpy::NpyArray arr = cnpy::npy_load("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0/Frame_F_0_logits.npy");
+    // ROS_INFO_STREAM("Shape: " << arr.shape[0] << "," << arr.shape[1] << "," << arr.shape[2]);
+    // float *loaded_data = arr.data<float>();
+
+    // int h = arr.shape[0];
+    // int w = arr.shape[1];
+    // int d = arr.shape[2];
+
+    // int i = 393;
+    // int j = 432;
+    // int k = 10;
+    // printf("F: %f\n", loaded_data[k + j * d + i * d * w]);
+
+    // for (i = 0; i < 2 * 2 * 19; i++)
+    // {
+    //     printf("%d -> %f\n", i, loaded_data[i]);
+    // }
 
     // Initialize ROS
     ros::init(argc, argv, "raycasting_test");
@@ -514,7 +545,7 @@ int main(int argc, char **argv)
     camera_orientation.block(0, 0, 3, 3) = camera_pose.block(0, 0, 3, 3);
     ROS_INFO_STREAM("Camera ext:" << camera_extrinsics.inverse());
 
-        //RectyLUT
+    //RectyLUT
     rectifyMapLut(rect_lut_path);
 
     //RAYS
@@ -538,7 +569,8 @@ int main(int argc, char **argv)
     }
 
     std::vector<Voxel3D> voxels;
-    map->fetchVoxels(voxels);
+    //map->fetchVoxels(voxels);
+    map->radiusSearch(0, 0, 0, 151.0, 151.0, 115.0, voxels);
     ROS_INFO_STREAM("Voxels: " << voxels.size());
 
     raycaster = new Raycaster(map);
@@ -603,6 +635,62 @@ int main(int argc, char **argv)
                 }
             }
         }
+
+        // #pragma omp parallel for schedule(static)
+        //         // for (int r = 0; r < rows; r += 1)
+        //         // {
+        //         //     for (int c = 0; c < cols; c += 1)
+        //         //     {
+        //         for (int r = center_row - crop; r < center_row + crop; r += 1)
+        //         {
+        //             for (int c = center_col - crop; c < center_col + crop; c += 1)
+        //             {
+
+        //                 for (int v = 0; v < voxels.size(); v++)
+        //                 {
+        //                     int x, y;
+        //                     ladybugConversionInv(r, c, x, y);
+
+        //                     if (img.at<cv::Vec3b>(y, x) == cv::Vec3b(0, 0, 0))
+        //                         continue;
+
+        //                     float delta = map_resolution;
+        //                     Ray &ray = getRay(r, c);
+        //                     Eigen::Vector4d direction = camera_orientation * ray.direction;
+        //                     Voxel3D voxel = voxels[v];
+        //                     skimap::Box box(
+        //                         skimap::Vector3(voxel.x - delta * 0.5, voxel.y - delta * 0.5, voxel.z - delta * 0.5),
+        //                         skimap::Vector3(voxel.x + delta * 0.5, voxel.y + delta * 0.5, voxel.z + delta * 0.5));
+        //                     skimap::Ray rr(
+        //                         skimap::Vector3(center(0), center(1), center(2)),
+        //                         skimap::Vector3(direction(0), direction(1), direction(2)));
+
+        //                     // Voxel3D v;
+        //                     // v.x = p(0);
+        //                     // v.y = p(1);
+        //                     // v.z = p(2);
+        //                     // v.data = d;
+        //                     // voxel = v;
+        //                     if (box.intersect(rr, 0, 100.0))
+        //                     {
+        //                         Eigen::Vector4d voxel_center;
+        //                         voxel_center << voxel.x, voxel.y, voxel.z;
+        //                         Eigen::Vector4d distance_vector = center - voxel_center;
+        //                         double distance = distance_vector.norm();
+        //                         distance = distance / max_distance;
+        //                         voxel_image[r * cols + c] = voxel;
+
+        //                         depth.at<cv::Vec3b>(y, x) = cv::Vec3b(distance * 255, distance * 255, distance * 255);
+        //                         succ++;
+        //                     }
+        //                     else
+        //                     {
+        //                         voxel_image[r * cols + c] = Voxel3D();
+        //                     }
+        //                 }
+        //             }
+        //         }
+
         ROS_INFO_STREAM("Siccess: " << succ);
         timings.printTime("ray");
 
@@ -613,40 +701,6 @@ int main(int argc, char **argv)
                 ray_voxels.push_back(voxel_image[r * cols + c]);
             }
         }
-
-        // timings.startTimer("ray");
-        // std::vector<Voxel3D> ray_voxels;
-        // int u, v;
-        // ladybugConversion(currentClick.x, currentClick.y, u, v);
-        // Ray &ray = getRay(u, v);
-        // Eigen::Vector4d center = camera_pose * ray.center;
-        // Eigen::Vector4d direction = camera_orientation * ray.direction;
-        // Voxel3D voxel;
-        // float max_distance = 130.0;
-        // float delta = 0.1;
-        // int iterations = max_distance / 0.1;
-
-        // for (int i = 0; i < iterations; i++)
-        // {
-        //     Eigen::Vector4d p;
-        //     p = center + direction * (delta * i);
-        //     Voxel3D voxelt;
-        //     voxelt.x = p(0);
-        //     voxelt.y = p(1);
-        //     voxelt.z = p(2);
-        //     voxelt.data = new VoxelData();
-        //     ray_voxels.push_back(voxelt);
-        // }
-
-        // if (raycaster->intersectVoxel(center, direction, voxel, delta, max_distance))
-        // {
-
-        //     ray_voxels.push_back(voxel);
-        // }
-        // else
-        // {
-        //     ROS_INFO_STREAM("Fauil!");
-        // }
 
         cv::Mat output = img.clone();
         cv::Mat output_unrect = imgunrect.clone();
@@ -667,7 +721,7 @@ int main(int argc, char **argv)
         cv::imshow("debug", depth);
         cv::imshow("image", output);
         cv::imshow("imageunrect", output_unrect);
-        cv::waitKey(1);
+        cv::waitKey(0);
 
         Eigen::Matrix4d trans;
         trans = Eigen::Matrix4d::Identity();

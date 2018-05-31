@@ -68,6 +68,8 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIR}) # cached
 endif(Boost_FOUND)
 
+#CNPY
+set(CNPY_LIBRARY /home/daniele/work/workspace_cpp/cnpy/build/libcnpy.a)
 
 
 
@@ -159,7 +161,7 @@ target_link_libraries(kd_test ${OpenCV_LIBRARIES} boost_system)
 ################################################################################
 
 add_executable(raycasting_test src/nodes/experiments/raycasting/raycasting_test.cpp)
-target_link_libraries(raycasting_test ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(raycasting_test ${CNPY_LIBRARY} ${OpenCV_LIBRARIES} ${catkin_LIBRARIES} )
 
 add_executable(raycasting_test_click src/nodes/experiments/raycasting/raycasting_test_click.cpp)
 target_link_libraries(raycasting_test_click ${OpenCV_LIBRARIES} ${catkin_LIBRARIES})

@@ -219,6 +219,32 @@ public:
   }
 
   /**
+       *
+       * @param x
+       * @param y
+       * @param z
+       * @return
+       */
+  virtual bool findVoxel(D x, D y, D z, Voxel3D &voxel_out)
+  {
+    K ix, iy, iz;
+    if (coordinatesToIndex(x, y, z, ix, iy, iz))
+    {
+      Voxel3D voxel;
+      D vx, vy, vz;
+      indexToCoordinates(ix, iy, iz, voxel.x, voxel.y, voxel.z);
+      V *data = find(ix, iy, iz);
+      if (data != NULL)
+      {
+        voxel.data = data;
+        voxel_out = voxel;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
   * Lock concurrency access to a X branch
   * @param key x index
   * @return

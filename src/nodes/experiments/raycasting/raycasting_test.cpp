@@ -589,7 +589,7 @@ int main(int argc, char **argv)
         // {
         //     for (int c = center_col - crop; c < center_col + crop; c += 10)
         //     {
-        double max_distance = 50.0;
+        double max_distance = 100.0;
         cv::Mat depth = cv::Mat::zeros(img.size(), CV_8UC3);
         std::vector<Voxel3D> ray_voxels;
         timings.startTimer("ray");
@@ -599,15 +599,19 @@ int main(int argc, char **argv)
         ROS_INFO_STREAM("Cam: " << camera_pose(0, 3) << "," << camera_pose(1, 3) << "," << camera_pose(2, 3));
         ROS_INFO_STREAM("Ray: " << center(0) << "," << center(1) << "," << center(2));
 
+        int pixel_jumps = 5;
+        int radius_count = 0;
+        boost::mutex io_mutex;
+
 #pragma omp parallel for schedule(static)
-        // for (int r = 0; r < rows; r += 1)
-        // {
-        //     for (int c = 0; c < cols; c += 1)
-        //     {
-        for (int r = center_row - crop; r < center_row + crop; r += 1)
+        for (int r = 0; r < rows; r += pixel_jumps)
         {
-            for (int c = center_col - crop; c < center_col + crop; c += 1)
+            for (int c = 500; c < cols - 500; c += pixel_jumps)
             {
+                //for (int r = center_row - crop; r < center_row + crop; r += 1)
+                //{
+                //  for (int c = center_col - crop; c < center_col + crop; c += 1)
+                //{
                 int x, y;
                 ladybugConversionInv(r, c, x, y);
                 if (img.at<cv::Vec3b>(y, x) == cv::Vec3b(0, 0, 0))
@@ -617,17 +621,50 @@ int main(int argc, char **argv)
                 Eigen::Vector4d direction = camera_orientation * ray.direction;
 
                 Voxel3D v;
-                if (raycaster->intersectVoxel(center, direction, v, 0.1, max_distance))
+                if (raycaster->intersectVoxel(center, direction, v, 0.1, max_distance, 5.0))
                 {
                     Eigen::Vector4d voxel_center;
                     voxel_center << v.x, v.y, v.z;
                     Eigen::Vector4d distance_vector = center - voxel_center;
                     double distance = distance_vector.norm();
-                    distance = distance / max_distance;
+                    double distance_nom = distance / max_distance;
                     voxel_image[r * cols + c] = v;
 
-                    depth.at<cv::Vec3b>(y, x) = cv::Vec3b(distance * 255, distance * 255, distance * 255);
+                    // std::vector<Voxel3D> radius_voxels;
+                    // map->radiusSearch(v.x, v.y, v.z, 0.5, 0.5, 0.5, radius_voxels);
+                    // {
+                    //     boost::mutex::scoped_lock lock(io_mutex);
+                    //     radius_count += radius_voxels.size();
+                    // }
+
+                    depth.at<cv::Vec3b>(y, x) = cv::Vec3b(distance_nom * 255, distance_nom * 255, distance_nom * 255);
                     succ++;
+                    if (pixel_jumps > 1)
+                    {
+                        for (int nr = r; nr < r + pixel_jumps; nr++)
+                        {
+                            for (int nc = c; nc < c + pixel_jumps; nc++)
+                            {
+                                if (nr == r && nc == c)
+                                    continue;
+                                Ray &new_ray = getRay(nr, nc);
+                                Eigen::Vector4d new_direction = camera_orientation * new_ray.direction;
+                                Voxel3D new_v;
+                                if (raycaster->intersectVoxel(center, new_direction, new_v, 0.1, distance - map_resolution * 3, distance + map_resolution * 3))
+                                {
+                                    voxel_center << new_v.x, new_v.y, new_v.z;
+                                    distance_vector = center - voxel_center;
+                                    double new_distance = distance_vector.norm();
+                                    new_distance = new_distance / max_distance;
+                                    voxel_image[nr * cols + nc] = new_v;
+                                    //printf("PLUS %d -> %d\n", r, nr);
+                                    int nx, ny;
+                                    ladybugConversionInv(nr, nc, nx, ny);
+                                    depth.at<cv::Vec3b>(ny, nx) = cv::Vec3b(new_distance * 255, new_distance * 255, new_distance * 255);
+                                }
+                            }
+                        }
+                    }
                 }
                 else
                 {
@@ -636,34 +673,54 @@ int main(int argc, char **argv)
             }
         }
 
+        ROS_INFO_STREAM("Siccess: " << succ);
+        timings.printTime("ray");
+
+        for (int r = 0; r < rows; r += pixel_jumps)
+        {
+            for (int c = 0; c < cols; c += pixel_jumps)
+            {
+                //for (int r = center_row - crop; r < center_row + crop; r++)
+                //{
+                //  for (int c = center_col - crop; c < center_col + crop; c++)
+                //{
+                if (voxel_image[r * cols + c].data != NULL)
+                {
+                    ray_voxels.push_back(voxel_image[r * cols + c]);
+                }
+            }
+        }
+
+        //timings.startTimer("postray");
+        ROS_INFO_STREAM("Hitted voxels: " << ray_voxels.size());
+        // for (int r = 0; r < rows; r += 1)
+        // {
+        //     for (int c = 0; c < cols; c += 1)
+        //     {
         // #pragma omp parallel for schedule(static)
-        //         // for (int r = 0; r < rows; r += 1)
-        //         // {
-        //         //     for (int c = 0; c < cols; c += 1)
-        //         //     {
         //         for (int r = center_row - crop; r < center_row + crop; r += 1)
         //         {
         //             for (int c = center_col - crop; c < center_col + crop; c += 1)
         //             {
+        //                 int x, y;
+        //                 ladybugConversionInv(r, c, x, y);
 
-        //                 for (int v = 0; v < voxels.size(); v++)
+        //                 if (img.at<cv::Vec3b>(y, x) == cv::Vec3b(0, 0, 0))
+        //                     continue;
+        //                 float delta = map_resolution;
+        //                 Ray &ray = getRay(r, c);
+        //                 Eigen::Vector4d direction = camera_orientation * ray.direction;
+        //                 skimap::Ray rr(
+        //                     skimap::Vector3(center(0), center(1), center(2)),
+        //                     skimap::Vector3(direction(0), direction(1), direction(2)));
+
+        //                 for (int v = 0; v < ray_voxels.size(); v++)
         //                 {
-        //                     int x, y;
-        //                     ladybugConversionInv(r, c, x, y);
 
-        //                     if (img.at<cv::Vec3b>(y, x) == cv::Vec3b(0, 0, 0))
-        //                         continue;
-
-        //                     float delta = map_resolution;
-        //                     Ray &ray = getRay(r, c);
-        //                     Eigen::Vector4d direction = camera_orientation * ray.direction;
-        //                     Voxel3D voxel = voxels[v];
+        //                     Voxel3D voxel = ray_voxels[v];
         //                     skimap::Box box(
         //                         skimap::Vector3(voxel.x - delta * 0.5, voxel.y - delta * 0.5, voxel.z - delta * 0.5),
         //                         skimap::Vector3(voxel.x + delta * 0.5, voxel.y + delta * 0.5, voxel.z + delta * 0.5));
-        //                     skimap::Ray rr(
-        //                         skimap::Vector3(center(0), center(1), center(2)),
-        //                         skimap::Vector3(direction(0), direction(1), direction(2)));
 
         //                     // Voxel3D v;
         //                     // v.x = p(0);
@@ -690,17 +747,7 @@ int main(int argc, char **argv)
         //                 }
         //             }
         //         }
-
-        ROS_INFO_STREAM("Siccess: " << succ);
-        timings.printTime("ray");
-
-        for (int r = center_row - crop; r < center_row + crop; r++)
-        {
-            for (int c = center_col - crop; c < center_col + crop; c++)
-            {
-                ray_voxels.push_back(voxel_image[r * cols + c]);
-            }
-        }
+        //         timings.printTime("postray");
 
         cv::Mat output = img.clone();
         cv::Mat output_unrect = imgunrect.clone();

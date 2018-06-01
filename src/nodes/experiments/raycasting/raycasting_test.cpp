@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cnpy.h>
+#include <math.h>
 
 // EIGEN
 #include <Eigen/Core>
@@ -45,6 +46,8 @@
 #include <skimap/voxels/VoxelDataMultiLabel.hpp>
 #include <skimap/SkiMap.hpp>
 #include <skimap/operators/Raycasting.hpp>
+
+#include <StorageUtils.hpp>
 
 /**
  */
@@ -321,49 +324,34 @@ Ray &getRay(int r, int c)
 {
     return rays[r * cols + c];
 }
-
 void loadRaysLutBinary(std::string rays_lut_path)
 {
+    siteco::BinaryMatrixData<float> bdata = siteco::BinaryMatrixData<float>::loadFromFile(rays_lut_path);
+    Eigen::MatrixXf dataf;
+    bdata.getEigenMatrix(dataf);
+    Eigen::MatrixXd data = dataf.cast<double>();
 
-    Eigen::MatrixXd test;
-    Eigen::read_binary(rays_lut_path.c_str(), test);
-
-    int file_rows = test.rows();
+    Eigen::Vector4d center;
+    int file_rows = data.rows();
     for (int i = 0; i < file_rows; i++)
     {
-        int r = test(i, 0);
-        int c = test(i, 1);
+        if (i == 0)
+        {
+            center << data(i, 2), data(i, 3), data(i, 4);
+            continue;
+        }
+
+        int r = data(i, 0);
+        int c = data(i, 1);
 
         if (r < rows && c < cols && r >= 0 && c >= 0)
         {
 
             Ray &ray = getRay(r, c);
-            ray.center << test(i, 2), test(i, 3), test(i, 4), 1.0;
-            ray.direction << test(i, 5), test(i, 6), test(i, 7), 1.0;
-            ray.cx = test(i, 2);
-            ray.cy = test(i, 3);
-            ray.cz = test(i, 4);
-            ray.rx = test(i, 5);
-            ray.ry = test(i, 6);
-            ray.rz = test(i, 7);
+            ray.center = center;
+            ray.direction << data(i, 2), data(i, 3), data(i, 4), 1.0;
         }
     }
-
-    Eigen::Matrix4d extr = camera_extrinsics;
-    extr = extr.inverse();
-
-    Eigen::Vector4d ray;
-    int r = 100;
-    int c = 2040;
-    ray << getRay(r, c).rx, getRay(r, c).ry, getRay(r, c).rz, 1.0;
-
-    Eigen::Vector4d ray2 = extr * ray;
-
-    ROS_INFO_STREAM("Loaded Rays: " << test.rows() << "," << test.cols());
-    ROS_INFO_STREAM("Ray r,c: " << r << "," << c);
-    ROS_INFO_STREAM("Extr: " << extr);
-    ROS_INFO_STREAM("Ray: " << ray);
-    ROS_INFO_STREAM("RayV: " << ray2);
 }
 
 void ladybugConversion(int x, int y, int &u, int &v)
@@ -381,6 +369,10 @@ void ladybugConversionInv(int u, int v, int &x, int &y)
 struct Remap
 {
     int u, v;
+    Remap()
+    {
+        set(-1, -1);
+    }
     void set(int u, int v)
     {
         this->u = u;
@@ -403,16 +395,26 @@ Remap &getRemap(Remap *&map, int r, int c)
 
 void rectifyMapLut(std::string rect_lut_path)
 {
-    Eigen::MatrixXd rectify_lut;
-    loadFromFile(rect_lut_path, rectify_lut, 4);
-    ROS_INFO_STREAM("Rect LUT: " << rectify_lut.rows() << "," << rectify_lut.cols());
+    siteco::BinaryMatrixData<float> bdata = siteco::BinaryMatrixData<float>::loadFromFile(rect_lut_path);
+    Eigen::MatrixXf dataf;
+    bdata.getEigenMatrix(dataf);
+    Eigen::MatrixXd rectify_lut = dataf.cast<double>();
 
     for (int i = 0; i < rectify_lut.rows(); i++)
     {
-        int rr = rectify_lut(i, 0);
-        int rc = rectify_lut(i, 1);
-        int ur = rectify_lut(i, 2);
-        int uc = rectify_lut(i, 3);
+
+        if (rectify_lut(i, 0) < 0 || rectify_lut(i, 0) >= rows)
+            continue;
+        if (rectify_lut(i, 1) < 0 || rectify_lut(i, 1) >= cols)
+            continue;
+        if (rectify_lut(i, 2) < 0 || rectify_lut(i, 2) >= rows)
+            continue;
+        if (rectify_lut(i, 3) < 0 || rectify_lut(i, 3) >= cols)
+            continue;
+        int rr = round(rectify_lut(i, 0));
+        int rc = round(rectify_lut(i, 1));
+        int ur = round(rectify_lut(i, 2));
+        int uc = round(rectify_lut(i, 3));
         getRemap(remap_r2u, rr, rc).set(ur, uc);
         getRemap(remap_u2r, ur, uc).set(rr, rc);
     }
@@ -479,6 +481,27 @@ float numpyIndexConversion(cnpy::NpyArray &arr, int i, int j, int k)
     return loaded_data[k + j * d + i * d * w];
 }
 
+cv::Mat produceRectifiedImage(cv::Mat &unrectified)
+{
+
+    cv::Mat temp;
+    cv::rotate(unrectified, temp, cv::ROTATE_90_COUNTERCLOCKWISE);
+    cv::Mat output = cv::Mat::zeros(temp.size(), CV_8UC3);
+
+    for (int r = 0; r < temp.rows; r++)
+    {
+        for (int c = 0; c < temp.cols; c++)
+        {
+            Remap &remap = getRemap(remap_u2r, r, c);
+            if (remap.u >= 0 && remap.v >= 0)
+                output.at<cv::Vec3b>(remap.u, remap.v) = temp.at<cv::Vec3b>(r, c);
+        }
+    }
+    cv::rotate(output, output, cv::ROTATE_90_CLOCKWISE);
+
+    // }
+    return output;
+}
 /**
  *
  * @param argc
@@ -520,12 +543,12 @@ int main(int argc, char **argv)
     nh->param<int>("hz", hz, 1);
 
     std::string dataset_path = nh->param<std::string>("dataset_path", "/home/daniele/data/datasets/siteco/DucatiEXP");
-    std::string rays_lut_path = nh->param<std::string>("rays_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/raysLut.txt.bin");
-    std::string rect_lut_path = nh->param<std::string>("rect_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/unrectifyLut.txt");
+    std::string rays_lut_path = nh->param<std::string>("rays_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rays.bin");
+    std::string rect_lut_path = nh->param<std::string>("rect_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rectmap.bin");
     std::string camera_extrinsics_path = nh->param<std::string>("camera_extrinsics_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.extrinsics.txt");
     std::string image_path_unrect = nh->param<std::string>("image_path_unrect", "/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_0/Frame_F_0.jpg");
     std::string image_path = nh->param<std::string>("image_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/temp/ladybug_20180426_153744_517612_Rectified_Cam0_1224x1024.bmp");
-
+    std::string imagesegment_path = nh->param<std::string>("imagesegment_path", "/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0/Frame_F_0_colorsegmentation.jpg");
     ROS_INFO_STREAM("Path: " << dataset_path);
     ROS_INFO_STREAM("Path: " << rays_lut_path);
 
@@ -533,7 +556,11 @@ int main(int argc, char **argv)
 
     cv::Mat img = cv::imread(image_path);
     cv::Mat imgunrect = cv::imread(image_path_unrect);
+    cv::Mat imgsegment = cv::imread(imagesegment_path);
+
     cv::namedWindow("debug", cv::WINDOW_NORMAL);
+    cv::namedWindow("Temp1", cv::WINDOW_NORMAL);
+    cv::namedWindow("Temp2", cv::WINDOW_NORMAL);
     cv::namedWindow("image", cv::WINDOW_NORMAL);
     cv::setMouseCallback("image", onMouse, 0);
 
@@ -589,7 +616,7 @@ int main(int argc, char **argv)
         // {
         //     for (int c = center_col - crop; c < center_col + crop; c += 10)
         //     {
-        double max_distance = 100.0;
+        double max_distance = 60.0;
         cv::Mat depth = cv::Mat::zeros(img.size(), CV_8UC3);
         std::vector<Voxel3D> ray_voxels;
         timings.startTimer("ray");
@@ -751,18 +778,22 @@ int main(int argc, char **argv)
 
         cv::Mat output = img.clone();
         cv::Mat output_unrect = imgunrect.clone();
-        // cv::circle(output, cv::Point(currentClick.x, currentClick.y), 20, cv::Scalar(255, 0, 0), 2);
-        // cv::circle(output, cv::Point(currentClick.x, currentClick.y), 3, cv::Scalar(255, 0, 0), -1);
+        cv::circle(output, cv::Point(currentClick.x, currentClick.y), 20, cv::Scalar(255, 0, 0), 2);
+        cv::circle(output, cv::Point(currentClick.x, currentClick.y), 3, cv::Scalar(255, 0, 0), -1);
 
-        // //Unrectified mapped circle
-        // int clicked_u, clicked_v;
-        // ladybugConversion(currentClick.x, currentClick.y, clicked_u, clicked_v);
-        // int clicked_u_unrect, clicked_v_unrect;
-        // getRemap(remap_r2u, clicked_u, clicked_v).get(clicked_u_unrect, clicked_v_unrect);
-        // int rx, ry;
-        // ladybugConversionInv(clicked_u_unrect, clicked_v_unrect, rx, ry);
-        // cv::circle(output_unrect, cv::Point(rx, ry), 20, cv::Scalar(255, 0, 0), 2);
-        // cv::circle(output_unrect, cv::Point(rx, ry), 3, cv::Scalar(255, 0, 0), -1);
+        //Unrectified mapped circle
+        int clicked_u, clicked_v;
+        ladybugConversion(currentClick.x, currentClick.y, clicked_u, clicked_v);
+        int clicked_u_unrect, clicked_v_unrect;
+        getRemap(remap_r2u, clicked_u, clicked_v).get(clicked_u_unrect, clicked_v_unrect);
+        int rx, ry;
+        ladybugConversionInv(clicked_u_unrect, clicked_v_unrect, rx, ry);
+        cv::circle(output_unrect, cv::Point(rx, ry), 20, cv::Scalar(255, 0, 0), 2);
+        cv::circle(output_unrect, cv::Point(rx, ry), 3, cv::Scalar(255, 0, 0), -1);
+
+        cv::Mat rectified = produceRectifiedImage(imgsegment);
+        cv::imshow("Temp1", imgsegment);
+        cv::imshow("Temp2", rectified);
 
         //IMshow
         cv::imshow("debug", depth);

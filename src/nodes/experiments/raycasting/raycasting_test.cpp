@@ -20,6 +20,7 @@
 // EIGEN
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <unsupported/Eigen/CXX11/Tensor>
 
 // ROS
 #include <message_filters/subscriber.h>
@@ -47,7 +48,11 @@
 #include <skimap/SkiMap.hpp>
 #include <skimap/operators/Raycasting.hpp>
 
-#include <StorageUtils.hpp>
+#include <siteco/StorageUtils.hpp>
+#include <siteco/LadybugRawStream.hpp>
+#include <siteco/LadybugFrames.hpp>
+#include <siteco/StorageUtils.hpp>
+#include <siteco/LadybugCameras.hpp>
 
 /**
  */
@@ -552,6 +557,15 @@ int main(int argc, char **argv)
     ROS_INFO_STREAM("Path: " << dataset_path);
     ROS_INFO_STREAM("Path: " << rays_lut_path);
 
+    // for (int r = 0; r < 2; r++)
+    // {
+    //     for (int c = 0; c < 8; c++)
+    //     {
+    //         printf("%f, ", ladybugPoses.poses(r, c));
+    //     }
+    //     printf("\n");
+    // }
+
     //Camera extrinsics
 
     cv::Mat img = cv::imread(image_path);
@@ -583,6 +597,60 @@ int main(int argc, char **argv)
     //loadTXT(dataset_path, points);
     loadBinary(dataset_path, points);
     ROS_INFO_STREAM("Chunks: " << points.size());
+
+    // DEBUG
+    // DEBUG
+    // DEBUG
+    // DEBUG
+    // DEBUG
+    // DEBUG
+    // DEBUG
+
+    // DEBUG
+    // DEBUG
+    // DEBUG
+
+    siteco::LadybugRawStream stream("/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_0/");
+    siteco::LadybugRawStream seg_stream = stream.buildRelatedStream("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0", "colorsegmentation");
+
+    for (int i = 0; i < stream.files.size(); i++)
+    {
+
+        ROS_INFO_STREAM("File: " << stream.files[i].basename);
+        ROS_INFO_STREAM("   Linked: " << seg_stream.files[stream.files[i].index].filename);
+    }
+
+    siteco::LadybugFramePoses ladybugPoses("/home/daniele/data/datasets/siteco/DucatiEXP/Ladybug0_0_poses.txt");
+
+    siteco::LadybugOfflineCamera camera(
+        2048,
+        2448,
+        "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rays.bin",
+        "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rectmap.bin");
+
+    typedef siteco::LadyPixel2D Pixel2D;
+    printf("RERADY\n");
+    for (int r = 350; r < 352; r++)
+    {
+        for (int c = 350; c < 352; c++)
+        {
+            ROS_INFO_STREAM("Pixel: " << r << "," << c);
+            ROS_INFO_STREAM("Ray: " << getRay(r, c).direction);
+            siteco::LadyRay3D ray;
+            if (camera.getRayOfRectifiedImage(Pixel2D(r, c), ray))
+            {
+                ROS_INFO_STREAM("Ray2: " << ray.direction);
+            }
+        }
+    }
+
+    // DEBUG
+    // DEBUG
+    // DEBUG
+    // DEBUG
+    // DEBUG
+    // DEBUG
+    // DEBUG
 
     map_resolution = nh->param<float>("map_resolution", 0.1);
     ROS_INFO_STREAM("Resolution: " << map_resolution);
@@ -794,6 +862,9 @@ int main(int argc, char **argv)
         cv::Mat rectified = produceRectifiedImage(imgsegment);
         cv::imshow("Temp1", imgsegment);
         cv::imshow("Temp2", rectified);
+
+        Eigen::Tensor<double, 5> ciao(10, 10, 10, 10, 10);
+        ciao(1, 1, 1, 1, 344) = 2.34;
 
         //IMshow
         cv::imshow("debug", depth);

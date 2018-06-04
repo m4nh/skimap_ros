@@ -7,7 +7,8 @@
                 "/usr/local/include",
                 "/opt/ros/kinetic/include",
                 "../devel/include",
-                "${workspaceRoot}"
+                "${workspaceRoot}",
+                "/home/daniele/work/workspace_cpp/SitecoLadybugTools/SitecoLadybugTools/include"
             ],
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
@@ -36,7 +37,8 @@
                 "${workspaceRoot}",
                 "/opt/ros/kinetic/include/opencv-3.3.1-dev",
                 "/usr/include/eigen3",
-                "${workspaceFolder}/include"
+                "${workspaceFolder}/include",
+                "/home/daniele/work/workspace_cpp/SitecoLadybugTools/SitecoLadybugTools/include"
             ],
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
@@ -46,7 +48,8 @@
                     "/usr/local/include",
                     "/opt/ros/kinetic/include",
                     "../devel/include",
-                    "${workspaceRoot}"
+                    "${workspaceRoot}",
+                    "/home/daniele/work/workspace_cpp/SitecoLadybugTools/SitecoLadybugTools/include"
                 ]
             },
             "intelliSenseMode": "clang-x64",

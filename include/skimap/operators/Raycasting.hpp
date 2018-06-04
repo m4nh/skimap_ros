@@ -104,66 +104,138 @@ class Box
     }
 };
 
+// template <class M>
+// class Raycasting
+// {
+//   public:
+//     typedef typename M::Voxel3D Voxel3D;
+//     typedef typename M::VoxelData VoxelData;
+
+//     Raycasting(M *map)
+//     {
+//         this->_map = map;
+//     }
+
+//     void intersect(Eigen::Vector4d center, Eigen::Vector4d dir, std::vector<Voxel3D> &voxels, double delta = 0.1, double max_distance = 30.0)
+//     {
+//         dir.normalize();
+//         int iterations = max_distance / delta;
+//         for (int i = 0; i < iterations; i++)
+//         {
+//             Eigen::Vector4d p;
+//             p = center + dir * (delta * i);
+//             VoxelData *d = this->_map->find(p(0), p(1), p(2));
+//             if (d != NULL)
+//             {
+//                 Voxel3D v;
+//                 v.x = p(0);
+//                 v.y = p(1);
+//                 v.z = p(2);
+//                 voxels.push_back(v);
+//             }
+//         }
+//     }
+
+//     bool intersectVoxel(Eigen::Vector4d center, Eigen::Vector4d dir, Voxel3D &voxel, double delta = 0.1, double max_distance = 30.0, double min_distance = 5.0)
+//     {
+//         dir.normalize();
+//         int iterations = max_distance / delta;
+//         for (int i = 0; i < iterations; i++)
+//         {
+//             Eigen::Vector4d p;
+//             p = center + dir * (min_distance + delta * i);
+
+//             uint16_t ix, iy, iz;
+//             Voxel3D voxel_out;
+//             if (this->_map->findVoxel(p(0), p(1), p(2), voxel))
+//             {
+//                 // voxel = voxel_out;
+//                 // Box box(
+//                 //     Vector3(voxel.x - delta * 0.5, voxel.y - delta * 0.5, voxel.z - delta * 0.5),
+//                 //     Vector3(voxel.x + delta * 0.5, voxel.y + delta * 0.5, voxel.z + delta * 0.5));
+//                 // Ray ray(
+//                 //     Vector3(center(0), center(1), center(2)),
+//                 //     Vector3(dir(0), dir(1), dir(2)));
+
+//                 // // Voxel3D v;
+//                 // // v.x = p(0);
+//                 // // v.y = p(1);
+//                 // // v.z = p(2);
+//                 // // v.data = d;
+//                 // // voxel = v;
+//                 // return box.intersect(ray, 0, 100.0);
+//                 return true;
+//             }
+//         }
+//         return false;
+//     }
+
+//     bool intersectVoxel(Eigen::Vector3d center, Eigen::Vector3d dir, Voxel3D &voxel, double delta = 0.1, double max_distance = 30.0, double min_distance = 5.0)
+//     {
+//         dir.normalize();
+//         int iterations = max_distance / delta;
+//         for (int i = 0; i < iterations; i++)
+//         {
+//             Eigen::Vector3d p;
+//             p = center + dir * (min_distance + delta * i);
+
+//             uint16_t ix, iy, iz;
+//             Voxel3D voxel_out;
+//             if (this->_map->findVoxel(p(0), p(1), p(2), voxel))
+//             {
+//                 return true;
+//             }
+//         }
+//         return false;
+//     }
+
+//     bool intersectVoxel(Eigen::Vector3d center, Eigen::Vector3d dir, Voxel3D &voxel, double delta, double min_distance, double max_distance)
+//     {
+//         dir.normalize();
+//         int iterations = max_distance / delta;
+//         for (int i = 0; i < iterations; i++)
+//         {
+//             Eigen::Vector3d p;
+//             p = center + dir * (min_distance + delta * i);
+
+//             uint16_t ix, iy, iz;
+//             Voxel3D voxel_out;
+//             if (this->_map->findVoxel(p(0), p(1), p(2), voxel))
+//             {
+//                 return true;
+//             }
+//         }
+//         return false;
+//     }
+
+//   protected:
+//     M *_map;
+// };
+
 template <class M>
-class Raycasting
+class Raycasting2
 {
   public:
     typedef typename M::Voxel3D Voxel3D;
-    typedef typename M::VoxelData VoxelData;
 
-    Raycasting(M *map)
+    Raycasting2(M *map)
     {
         this->_map = map;
     }
 
-    void intersect(Eigen::Vector4d center, Eigen::Vector4d dir, std::vector<Voxel3D> &voxels, double delta = 0.1, double max_distance = 30.0)
+    bool intersectVoxel(Eigen::Vector3d center, Eigen::Vector3d dir, Voxel3D &voxel, double delta, double min_distance, double max_distance)
     {
         dir.normalize();
         int iterations = max_distance / delta;
         for (int i = 0; i < iterations; i++)
         {
-            Eigen::Vector4d p;
-            p = center + dir * (delta * i);
-            VoxelData *d = this->_map->find(p(0), p(1), p(2));
-            if (d != NULL)
-            {
-                Voxel3D v;
-                v.x = p(0);
-                v.y = p(1);
-                v.z = p(2);
-                voxels.push_back(v);
-            }
-        }
-    }
-
-    bool intersectVoxel(Eigen::Vector4d center, Eigen::Vector4d dir, Voxel3D &voxel, double delta = 0.1, double max_distance = 30.0, double min_distance = 5.0)
-    {
-        dir.normalize();
-        int iterations = max_distance / delta;
-        for (int i = 0; i < iterations; i++)
-        {
-            Eigen::Vector4d p;
+            Eigen::Vector3d p;
             p = center + dir * (min_distance + delta * i);
 
             uint16_t ix, iy, iz;
             Voxel3D voxel_out;
             if (this->_map->findVoxel(p(0), p(1), p(2), voxel))
             {
-                // voxel = voxel_out;
-                // Box box(
-                //     Vector3(voxel.x - delta * 0.5, voxel.y - delta * 0.5, voxel.z - delta * 0.5),
-                //     Vector3(voxel.x + delta * 0.5, voxel.y + delta * 0.5, voxel.z + delta * 0.5));
-                // Ray ray(
-                //     Vector3(center(0), center(1), center(2)),
-                //     Vector3(dir(0), dir(1), dir(2)));
-
-                // // Voxel3D v;
-                // // v.x = p(0);
-                // // v.y = p(1);
-                // // v.z = p(2);
-                // // v.data = d;
-                // // voxel = v;
-                // return box.intersect(ray, 0, 100.0);
                 return true;
             }
         }
@@ -173,6 +245,7 @@ class Raycasting
   protected:
     M *_map;
 };
+
 } // namespace skimap
 
 #endif /* RAYCASTING_HPP */

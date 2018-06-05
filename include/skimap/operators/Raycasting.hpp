@@ -242,6 +242,29 @@ class Raycasting2
         return false;
     }
 
+    template <class VoxelData>
+    bool intersectVoxelWithWeight(Eigen::Vector3d center, Eigen::Vector3d dir, double min_weight, Voxel3D &voxel, double delta, double min_distance, double max_distance)
+    {
+        dir.normalize();
+        int iterations = max_distance / delta;
+        for (int i = 0; i < iterations; i++)
+        {
+            Eigen::Vector3d p;
+            p = center + dir * (min_distance + delta * i);
+
+            uint16_t ix, iy, iz;
+
+            if (this->_map->findVoxel(p(0), p(1), p(2), voxel))
+            {
+                VoxelData *data = voxel.data;
+                if (data != NULL)
+                    if (data->hiddenCounter >= min_weight)
+                        return true;
+            }
+        }
+        return false;
+    }
+
   protected:
     M *_map;
 };

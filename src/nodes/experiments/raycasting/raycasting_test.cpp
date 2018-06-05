@@ -29,6 +29,9 @@
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <tf/transform_broadcaster.h>
+#include <tf_conversions/tf_eigen.h>
+#include <eigen_conversions/eigen_msg.h>
 
 // OPENCV
 #include <cv_bridge/cv_bridge.h>
@@ -45,14 +48,17 @@
 // Skimap
 #include <skimap/voxels/VoxelDataRGBW.hpp>
 #include <skimap/voxels/VoxelDataMultiLabel.hpp>
+#include <skimap/voxels/VoxelDataMultiLabelWithCounter.hpp>
 #include <skimap/SkiMap.hpp>
 #include <skimap/operators/Raycasting.hpp>
 
+#include <siteco/Geometry.hpp>
 #include <siteco/StorageUtils.hpp>
 #include <siteco/LadybugRawStream.hpp>
 #include <siteco/LadybugFrames.hpp>
 #include <siteco/StorageUtils.hpp>
 #include <siteco/LadybugCameras.hpp>
+#include <siteco/SegmentationDatasets.hpp>
 
 /**
  */
@@ -96,7 +102,8 @@ typedef uint16_t LabelType;
 typedef uint16_t WeightType;
 typedef double CoordinatesType;
 //typedef skimap::VoxelDataMultiLabel<20, LabelType, WeightType> VoxelData;
-typedef skimap::VoxelDataRGBW<uint8_t, float> VoxelData;
+typedef skimap::VoxelDataMultiLabelWithCounter<20, LabelType, WeightType> VoxelData;
+//typedef skimap::VoxelDataRGBW<uint8_t, float> VoxelData;
 
 typedef skimap::SkiMap<VoxelData, int16_t, CoordinatesType> SKIMAP;
 typedef skimap::SkiMap<VoxelData, int16_t, CoordinatesType>::Voxel3D Voxel3D;
@@ -120,6 +127,8 @@ Eigen::Vector3d world_center;
 
 Eigen::MatrixXd camera_extrinsics, camera_orientation;
 Eigen::Matrix3d camera_rot;
+
+siteco::SegmentationDataset dataset;
 
 //double center_x = 0, center_y = 0, center_z = 0;
 
@@ -146,6 +155,32 @@ std::vector<std::string> findFilesInFolder(std::string folder, std::string tag, 
         std::sort(files.begin(), files.end());
 
     return files;
+}
+
+visualization_msgs::Marker createCarMarker()
+{
+    visualization_msgs::Marker car_marker;
+    car_marker.header.frame_id = "camera";
+    car_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+    car_marker.mesh_resource = "package://semantic_world/models/car_cameras.stl";
+
+    Eigen::Affine3d a(siteco::Transformations::generateRotationMatrix4d(0, 0, M_PI));
+    tf::poseEigenToMsg(a, car_marker.pose);
+    car_marker.pose.position.z = -2.25;
+    car_marker.pose.position.x = 0.2;
+
+    car_marker.action = visualization_msgs::Marker::MODIFY;
+    car_marker.id = 1;
+    car_marker.ns = "car";
+    car_marker.mesh_use_embedded_materials = true;
+    car_marker.color.r = 0;
+    car_marker.color.g = 0;
+    car_marker.color.b = 0;
+    car_marker.color.a = 0;
+    car_marker.scale.x = 1.025;
+    car_marker.scale.y = 1.025;
+    car_marker.scale.z = 1.025;
+    return car_marker;
 }
 
 /**
@@ -181,10 +216,10 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
     {
         if (voxels[i].data == NULL)
             continue;
-        // if (voxels[i].data->heavierWeight() < min_weight_th)
-        //     continue;
-        if (voxels[i].data->w < min_weight_th)
+        if (voxels[i].data->heavierWeight() < min_weight_th)
             continue;
+        // if (voxels[i].data->w < min_weight_th)
+        //     continue;
 
         /**
      * Create 3D Point from 3D Voxel
@@ -199,11 +234,13 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
      */
         std_msgs::ColorRGBA color;
 
-        //LabelType l = voxels[i].data->heavierLabel();
+        LabelType l = voxels[i].data->heavierLabel();
         cv::Scalar lc = col;
-        lc[2] = voxels[i].data->r;
-        lc[1] = voxels[i].data->g;
-        lc[0] = voxels[i].data->b;
+        Eigen::Vector3i class_color = dataset.getClass(l).color;
+
+        lc[0] = class_color(0);
+        lc[1] = class_color(1);
+        lc[2] = class_color(2);
 
         // if (l < labels_color_map.size())
         // {
@@ -465,8 +502,9 @@ void integrateSkimapSimple(Eigen::MatrixXd &points)
         double y = points(1, n) - world_center(1);
         double z = points(2, n) - world_center(2);
         //printf("Integrate points: %f, %f, %f\n", x, y, z);
-        //VoxelData voxel(0, 1.0);
-        VoxelData voxel(0, 0, 0, 0.0);
+        VoxelData voxel;
+        voxel.hiddenCounter = 1.0;
+        //VoxelData voxel(0, 0, 0, 0.0);
         map->integrateVoxel(x, y, z, &voxel);
     }
 }
@@ -550,13 +588,17 @@ int main(int argc, char **argv)
     // Initialize ROS
     ros::init(argc, argv, "raycasting_test");
     nh = new ros::NodeHandle("~");
+    tf::TransformBroadcaster br;
 
     //PUB SUB
     ros::Publisher map_publisher = nh->advertise<visualization_msgs::Marker>("raycast_map", 1);
     ros::Publisher temp_publisher = nh->advertise<visualization_msgs::Marker>("temp", 1);
+    ros::Publisher car_publisher = nh->advertise<visualization_msgs::Marker>("car", 1);
 
     int hz;
     nh->param<int>("hz", hz, 1);
+
+    double laser_distance = nh->param<double>("laser_distance", 50.0);
 
     std::string dataset_path = nh->param<std::string>("dataset_path", "/home/daniele/data/datasets/siteco/DucatiEXP");
     std::string rays_lut_path = nh->param<std::string>("rays_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rays.bin");
@@ -581,33 +623,16 @@ int main(int argc, char **argv)
 
     //Camera extrinsics
 
-    cv::Mat img = cv::imread(image_path);
-    cv::Mat imgunrect = cv::imread(image_path_unrect);
-    cv::Mat imgsegment = cv::imread(imagesegment_path);
-
     cv::namedWindow("debug", cv::WINDOW_NORMAL);
     cv::namedWindow("Temp1", cv::WINDOW_NORMAL);
-    cv::namedWindow("Temp2", cv::WINDOW_NORMAL);
+    cv::namedWindow("unrectified_segmentation", cv::WINDOW_NORMAL);
+    cv::namedWindow("unrectified_image", cv::WINDOW_NORMAL);
     cv::namedWindow("image", cv::WINDOW_NORMAL);
     cv::setMouseCallback("image", onMouse, 0);
 
     cv::namedWindow("imageunrect", cv::WINDOW_NORMAL);
 
     loadFromFile(camera_extrinsics_path, camera_extrinsics, 4);
-
-    // loadFromFile("/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/temp/sample_pose.txt", camera_pose, 4);
-    // camera_orientation = Eigen::Matrix4d::Identity();
-    // camera_orientation.block(0, 0, 3, 3) = camera_pose.block(0, 0, 3, 3);
-    // camera_rot = camera_pose.block(0, 0, 3, 3);
-
-    ROS_INFO_STREAM("Camera ext:" << camera_extrinsics.inverse());
-
-    //RectyLUT
-    rectifyMapLut(rect_lut_path);
-
-    //RAYS
-    //loadRaysLutTXT(rays_lut_path);
-    loadRaysLutBinary(rays_lut_path);
 
     std::vector<Eigen::MatrixXd> points;
     //loadTXT(dataset_path, points);
@@ -626,8 +651,10 @@ int main(int argc, char **argv)
     // DEBUG
     // DEBUG
 
+    dataset = siteco::SegmentationDataset("/home/daniele/Desktop/cityscapes.json");
     siteco::LadybugRawStream stream("/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_0/");
-    siteco::LadybugRawStream seg_stream = stream.buildRelatedStream("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0", "colorsegmentation");
+    siteco::LadybugRawStream seg_stream = stream.buildRelatedStream("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0_reduced", "segmentation", "png");
+    siteco::LadybugRawStream seg_stream_color = stream.buildRelatedStream("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0_reduced", "colorsegmentation", "jpg");
     siteco::LadybugFramePoses streamPoses("/home/daniele/data/datasets/siteco/DucatiEXP/Ladybug0_0_poses.txt");
     siteco::LadybugOfflineCamera camera(
         2048,
@@ -669,9 +696,11 @@ int main(int argc, char **argv)
     // Spin
     while (nh->ok())
     {
-
+        if (stream_index >= streamPoses.poses.size())
+            break;
         int succ = 0;
 
+        timings.startTimer("data_prepare");
         // POSE
         Eigen::Matrix4d extr = camera_extrinsics.inverse();
         Eigen::Matrix4d camera_pose = streamPoses.getPose(stream_index);
@@ -681,30 +710,39 @@ int main(int argc, char **argv)
         camera_pose(2, 3) = camera_pose(2, 3) - world_center(2);
         Eigen::Matrix3d camera_rot = camera_pose.block(0, 0, 3, 3);
 
+        timings.startTimer("radius");
         //Fecth voxels
         std::vector<Voxel3D> voxels;
         //map->fetchVoxels(voxels);
         map->radiusSearch(camera_pose(0, 3), camera_pose(1, 3), camera_pose(2, 3), 151.0, 151.0, 115.0, voxels);
         ROS_INFO_STREAM("Voxels: " << voxels.size());
+        timings.printTime("radius");
 
+        timings.startTimer("images");
         // IMG
-        printf("Img file: %s\n", stream.files[stream_index].filename.c_str());
-        printf("ImgSeg file: %s\n", seg_stream.files[stream_index].filename.c_str());
+        cv::Mat img = cv::imread(stream.files[stream_index].filename);
         cv::Mat imgunrect = cv::imread(stream.files[stream_index].filename);
-        cv::Mat imgsegment = cv::imread(seg_stream.files[stream_index].filename);
-        cv::Mat rectified_seg = camera.rectifyImage<cv::Vec3b>(imgsegment);
+        cv::Mat rectified_mask = camera.rectifyImage<cv::Vec3b>(imgunrect);
+        cv::cvtColor(rectified_mask, rectified_mask, CV_BGR2GRAY);
+        rectified_mask.setTo(255, rectified_mask > 0);
+        cv::Mat imgsegment = cv::imread(seg_stream.files[stream_index].filename, CV_LOAD_IMAGE_ANYDEPTH);
+        //cv::Mat imgsegment_color = cv::imread(seg_stream_color.files[stream_index].filename);
+        cv::Mat imgsegment_color = dataset.getColoredImageFromLabels(imgsegment);
+        timings.printTime("images");
 
-        double max_distance = 20.0;
+        timings.startTimer("rectify");
+        cv::Mat rectified_seg = camera.rectifyImage<unsigned char>(imgsegment);
+        cv::Mat rectified_seg_color = dataset.getColoredImageFromLabels(rectified_seg);
+        timings.printTime("rectify");
+
+        double max_distance = laser_distance;
         cv::Mat depth = cv::Mat::zeros(img.size(), CV_8UC3);
         std::vector<Voxel3D> ray_voxels;
-        timings.startTimer("ray");
 
         siteco::LadyRay3D start_ray;
         LadyPixel2D rp(0, 0);
         camera.getRayOfRectifiedImage(rp, start_ray);
         Eigen::Vector3d center = (camera_pose * start_ray.centerH()).head(3);
-        ROS_INFO_STREAM("Cam: " << camera_pose(0, 3) << "," << camera_pose(1, 3) << "," << camera_pose(2, 3));
-        ROS_INFO_STREAM("Ray: " << center(0) << "," << center(1) << "," << center(2));
 
         int pixel_jumps = 2;
         int radius_count = 0;
@@ -713,6 +751,21 @@ int main(int argc, char **argv)
         int steps = 4;
         int chunk_size = rows / steps;
 
+        std::set<int> excluded_labels;
+        excluded_labels.insert(10);
+        excluded_labels.insert(14);
+        excluded_labels.insert(11);
+        excluded_labels.insert(12);
+        excluded_labels.insert(13);
+        excluded_labels.insert(14);
+        excluded_labels.insert(15);
+        excluded_labels.insert(16);
+        excluded_labels.insert(17);
+        excluded_labels.insert(18);
+
+        timings.printTime("data_prepare");
+
+        timings.startTimer("ray");
 #pragma omp parallel for schedule(guided)
         for (int r = 500; r < 1500; r += pixel_jumps)
         {
@@ -723,8 +776,16 @@ int main(int argc, char **argv)
                 //  for (int c = center_col - crop; c < center_col + crop; c += 1)
                 //{
                 int x, y;
-                ladybugConversionInv(r, c, x, y);
+                camera.coordinatesConversion(siteco::LadyPixel2D(r, c), x, y);
+
                 if (img.at<cv::Vec3b>(y, x) == cv::Vec3b(0, 0, 0))
+                    continue;
+
+                if (rectified_mask.at<unsigned char>(y, x) == 0)
+                    continue;
+
+                int label = rectified_seg.at<unsigned char>(y, x);
+                if (excluded_labels.find(label) != excluded_labels.end())
                     continue;
 
                 siteco::LadyRay3D ray;
@@ -736,11 +797,14 @@ int main(int argc, char **argv)
 
                 // ROS_INFO_STREAM("Ray: " << direction);
                 Voxel3D v;
-                if (raycaster->intersectVoxel(center, direction, v, 0.1, 5.0, max_distance))
+                //if (raycaster->intersectVoxel(center, direction, v, map_resolution, 5.0, max_distance))
+                if (raycaster->intersectVoxelWithWeight<VoxelData>(center, direction, 0, v, map_resolution, 5.0, max_distance))
                 {
-                    cv::Vec3b color = rectified_seg.at<cv::Vec3b>(y, x);
-                    VoxelData data(color[0], color[1], color[2], 1.0);
+
+                    VoxelData data(label, 1.0);
                     *(v.data) = *(v.data) + &data;
+
+                    // VoxelData data(color[0], color[1], color[2], 1.0);
 
                     Eigen::Vector3d voxel_center;
                     voxel_center << v.x, v.y, v.z;
@@ -751,36 +815,36 @@ int main(int argc, char **argv)
 
                     depth.at<cv::Vec3b>(y, x) = cv::Vec3b(distance_nom * 255, distance_nom * 255, distance_nom * 255);
                     succ++;
-                    if (pixel_jumps > 1 && false)
-                    {
-                        for (int nr = r; nr < r + pixel_jumps; nr++)
-                        {
-                            for (int nc = c; nc < c + pixel_jumps; nc++)
-                            {
-                                if (nr == r && nc == c)
-                                    continue;
+                    // if (pixel_jumps > 1 && false)
+                    // {
+                    //     for (int nr = r; nr < r + pixel_jumps; nr++)
+                    //     {
+                    //         for (int nc = c; nc < c + pixel_jumps; nc++)
+                    //         {
+                    //             if (nr == r && nc == c)
+                    //                 continue;
 
-                                LadyRay3D new_ray;
-                                LadyPixel2D new_rp(nr, nc);
-                                camera.getRayOfRectifiedImage(new_rp, new_ray);
+                    //             LadyRay3D new_ray;
+                    //             LadyPixel2D new_rp(nr, nc);
+                    //             camera.getRayOfRectifiedImage(new_rp, new_ray);
 
-                                Eigen::Vector3d new_direction = camera_rot * new_ray.direction;
-                                Voxel3D new_v;
-                                if (raycaster->intersectVoxel(center, new_direction, new_v, 0.1, 5.0, max_distance)) // distance + map_resolution * 30, distance - map_resolution * 30))
-                                {
-                                    voxel_center << new_v.x, new_v.y, new_v.z;
-                                    Eigen::Vector3d distance_vector = center - voxel_center;
-                                    double new_distance = distance_vector.norm();
-                                    new_distance = new_distance / max_distance;
-                                    voxel_image[nr * cols + nc] = new_v;
-                                    //printf("PLUS %d -> %d\n", r, nr);
-                                    int nx, ny;
-                                    ladybugConversionInv(nr, nc, nx, ny);
-                                    depth.at<cv::Vec3b>(ny, nx) = cv::Vec3b(new_distance * 255, new_distance * 255, new_distance * 255);
-                                }
-                            }
-                        }
-                    }
+                    //             Eigen::Vector3d new_direction = camera_rot * new_ray.direction;
+                    //             Voxel3D new_v;
+                    //             if (raycaster->intersectVoxel(center, new_direction, new_v, 0.1, 5.0, max_distance)) // distance + map_resolution * 30, distance - map_resolution * 30))
+                    //             {
+                    //                 voxel_center << new_v.x, new_v.y, new_v.z;
+                    //                 Eigen::Vector3d distance_vector = center - voxel_center;
+                    //                 double new_distance = distance_vector.norm();
+                    //                 new_distance = new_distance / max_distance;
+                    //                 voxel_image[nr * cols + nc] = new_v;
+                    //                 //printf("PLUS %d -> %d\n", r, nr);
+                    //                 int nx, ny;
+                    //                 camera.coordinatesConversion(siteco::LadyPixel2D(nr, nc), nx, ny);
+                    //                 depth.at<cv::Vec3b>(ny, nx) = cv::Vec3b(new_distance * 255, new_distance * 255, new_distance * 255);
+                    //             }
+                    //         }
+                    //     }
+                    // }
                 }
                 else
                 {
@@ -792,104 +856,16 @@ int main(int argc, char **argv)
         ROS_INFO_STREAM("Siccess: " << succ);
         timings.printTime("ray");
 
-        for (int r = 0; r < rows; r += pixel_jumps)
-        {
-            for (int c = 0; c < cols; c += pixel_jumps)
-            {
-                //for (int r = center_row - crop; r < center_row + crop; r++)
-                //{
-                //  for (int c = center_col - crop; c < center_col + crop; c++)
-                //{
-                if (voxel_image[r * cols + c].data != NULL)
-                {
-                    ray_voxels.push_back(voxel_image[r * cols + c]);
-                }
-            }
-        }
-
-        //timings.startTimer("postray");
-        ROS_INFO_STREAM("Hitted voxels: " << ray_voxels.size());
-        // for (int r = 0; r < rows; r += 1)
-        // {
-        //     for (int c = 0; c < cols; c += 1)
-        //     {
-        // #pragma omp parallel for schedule(static)
-        //         for (int r = center_row - crop; r < center_row + crop; r += 1)
-        //         {
-        //             for (int c = center_col - crop; c < center_col + crop; c += 1)
-        //             {
-        //                 int x, y;
-        //                 ladybugConversionInv(r, c, x, y);
-
-        //                 if (img.at<cv::Vec3b>(y, x) == cv::Vec3b(0, 0, 0))
-        //                     continue;
-        //                 float delta = map_resolution;
-        //                 Ray &ray = getRay(r, c);
-        //                 Eigen::Vector4d direction = camera_orientation * ray.direction;
-        //                 skimap::Ray rr(
-        //                     skimap::Vector3(center(0), center(1), center(2)),
-        //                     skimap::Vector3(direction(0), direction(1), direction(2)));
-
-        //                 for (int v = 0; v < ray_voxels.size(); v++)
-        //                 {
-
-        //                     Voxel3D voxel = ray_voxels[v];
-        //                     skimap::Box box(
-        //                         skimap::Vector3(voxel.x - delta * 0.5, voxel.y - delta * 0.5, voxel.z - delta * 0.5),
-        //                         skimap::Vector3(voxel.x + delta * 0.5, voxel.y + delta * 0.5, voxel.z + delta * 0.5));
-
-        //                     // Voxel3D v;
-        //                     // v.x = p(0);
-        //                     // v.y = p(1);
-        //                     // v.z = p(2);
-        //                     // v.data = d;
-        //                     // voxel = v;
-        //                     if (box.intersect(rr, 0, 100.0))
-        //                     {
-        //                         Eigen::Vector4d voxel_center;
-        //                         voxel_center << voxel.x, voxel.y, voxel.z;
-        //                         Eigen::Vector4d distance_vector = center - voxel_center;
-        //                         double distance = distance_vector.norm();
-        //                         distance = distance / max_distance;
-        //                         voxel_image[r * cols + c] = voxel;
-
-        //                         depth.at<cv::Vec3b>(y, x) = cv::Vec3b(distance * 255, distance * 255, distance * 255);
-        //                         succ++;
-        //                     }
-        //                     else
-        //                     {
-        //                         voxel_image[r * cols + c] = Voxel3D();
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //         timings.printTime("postray");
-
+        timings.startTimer("visualization");
         cv::Mat output = img.clone();
         cv::Mat output_unrect = imgunrect.clone();
-        // cv::circle(output, cv::Point(currentClick.x, currentClick.y), 20, cv::Scalar(255, 0, 0), 2);
-        // cv::circle(output, cv::Point(currentClick.x, currentClick.y), 3, cv::Scalar(255, 0, 0), -1);
 
-        // //Unrectified mapped circle
-        // int clicked_u, clicked_v;
-        // ladybugConversion(currentClick.x, currentClick.y, clicked_u, clicked_v);
-        // int clicked_u_unrect, clicked_v_unrect;
-        // getRemap(remap_r2u, clicked_u, clicked_v).get(clicked_u_unrect, clicked_v_unrect);
-        // int rx, ry;
-        // ladybugConversionInv(clicked_u_unrect, clicked_v_unrect, rx, ry);
-        // cv::circle(output_unrect, cv::Point(rx, ry), 20, cv::Scalar(255, 0, 0), 2);
-        // cv::circle(output_unrect, cv::Point(rx, ry), 3, cv::Scalar(255, 0, 0), -1);
-
-        cv::imshow("Temp1", imgsegment);
-        cv::imshow("Temp2", rectified_seg);
-
-        // Eigen::Tensor<double, 5> ciao(10, 10, 10, 10, 10);
-        // ciao(1, 1, 1, 1, 344) = 2.34;
+        cv::imshow("unrectified_segmentation", imgsegment_color);
 
         //IMshow
         cv::imshow("debug", depth);
-        cv::imshow("image", output);
-        cv::imshow("imageunrect", output_unrect);
+        cv::imshow("image", rectified_mask);
+        cv::imshow("unrectified_image", output_unrect);
 
         Eigen::Matrix4d trans;
         trans = Eigen::Matrix4d::Identity();
@@ -899,15 +875,34 @@ int main(int argc, char **argv)
         camera_orientation = Eigen::Matrix4d::Identity();
         camera_orientation.block(0, 0, 3, 3) = camera_pose.block(0, 0, 3, 3);
 
-        visualization_msgs::Marker rayMarker = createVisualizationMarker("world", ros::Time::now(), 10, ray_voxels, map_resolution * 1.01, 0, cv::Scalar(255, 0, 0));
+        // visualization_msgs::Marker rayMarker = createVisualizationMarker("world", ros::Time::now(), 10, ray_voxels, map_resolution * 1.01, 0, cv::Scalar(255, 0, 0));
         visualization_msgs::Marker voxelMarker = createVisualizationMarker("world", ros::Time::now(), 10, voxels, map_resolution, 0);
+        visualization_msgs::Marker carMarker = createCarMarker();
 
         map_publisher.publish(voxelMarker);
-        temp_publisher.publish(rayMarker);
+        //temp_publisher.publish(rayMarker);
+        car_publisher.publish(carMarker);
 
-        stream_index++;
-        cv::waitKey(1);
+        tf::Transform camera_pose_tf;
+        Eigen::Affine3d camera_affine;
+        camera_affine = camera_pose;
+        tf::transformEigenToTF(camera_affine, camera_pose_tf);
+        br.sendTransform(tf::StampedTransform(camera_pose_tf, ros::Time::now(), "world", "camera"));
+
+        timings.printTime("visualization");
+
+        if (stream_index == 0)
+        {
+            cv::waitKey(0);
+        }
+        else
+        {
+            cv::waitKey(1);
+        }
+
         ros::spinOnce();
         r.sleep();
+
+        stream_index++;
     }
 }

@@ -19,6 +19,7 @@ find_package(catkin REQUIRED
     message_generation
     tf
     tf_conversions
+    eigen_conversions
     )
 
 include_directories(${catkin_INCLUDE_DIRS})

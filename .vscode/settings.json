@@ -43,7 +43,8 @@
         "mutex": "cpp",
         "system_error": "cpp",
         "core": "cpp",
-        "numericaldiff": "cpp"
+        "numericaldiff": "cpp",
+        "*.txx": "cpp"
     },
     "C_Cpp.intelliSenseEngineFallback": "Disabled"
 }

@@ -556,6 +556,29 @@ cv::Mat produceRectifiedImage(cv::Mat &unrectified)
     return output;
 }
 
+void saveMapToFile(SKIMAP *&map, float resolution, std::string filename)
+{
+    std::vector<Voxel3D> voxels;
+    map->fetchVoxels(voxels);
+
+    std::ofstream f;
+    f.open(filename);
+
+    f << "# SkipListMapV2" << std::endl;
+    f << -32768 << " " << 32768 << " ";
+    f << resolution << " ";
+    f << resolution << " ";
+    f << resolution << std::endl;
+    for (int i = 0; i < voxels.size(); i++)
+    {
+        if (voxels[i].data->heavierWeight() > 0)
+        {
+            f << voxels[i] << std::endl;
+        }
+    }
+    f.close();
+}
+
 /**
  *
  * @param argc
@@ -567,7 +590,7 @@ int main(int argc, char **argv)
 
     // DEMO NPY
 
-    // cnpy::NpyArray arr = cnpy::npy_load("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0/Frame_F_0_logits.npy");
+    // cnpy::NpyArray arr = cnpy::npy_load("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_1/Frame_F_0_logits.npy");
     // ROS_INFO_STREAM("Shape: " << arr.shape[0] << "," << arr.shape[1] << "," << arr.shape[2]);
     // float *loaded_data = arr.data<float>();
 
@@ -601,12 +624,12 @@ int main(int argc, char **argv)
     double laser_distance = nh->param<double>("laser_distance", 50.0);
 
     std::string dataset_path = nh->param<std::string>("dataset_path", "/home/daniele/data/datasets/siteco/DucatiEXP");
-    std::string rays_lut_path = nh->param<std::string>("rays_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rays.bin");
-    std::string rect_lut_path = nh->param<std::string>("rect_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rectmap.bin");
-    std::string camera_extrinsics_path = nh->param<std::string>("camera_extrinsics_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.extrinsics.txt");
-    std::string image_path_unrect = nh->param<std::string>("image_path_unrect", "/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_0/Frame_F_0.jpg");
+    std::string rays_lut_path = nh->param<std::string>("rays_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_1.rays.bin");
+    std::string rect_lut_path = nh->param<std::string>("rect_lut_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_1.rectmap.bin");
+    std::string camera_extrinsics_path = nh->param<std::string>("camera_extrinsics_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_1.extrinsics.txt");
+    std::string image_path_unrect = nh->param<std::string>("image_path_unrect", "/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_1/Frame_F_0.jpg");
     std::string image_path = nh->param<std::string>("image_path", "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/temp/ladybug_20180426_153744_517612_Rectified_Cam0_1224x1024.bmp");
-    std::string imagesegment_path = nh->param<std::string>("imagesegment_path", "/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0/Frame_F_0_colorsegmentation.jpg");
+    std::string imagesegment_path = nh->param<std::string>("imagesegment_path", "/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_1/Frame_F_0_colorsegmentation.jpg");
     ROS_INFO_STREAM("Path: " << dataset_path);
     ROS_INFO_STREAM("Path: " << rays_lut_path);
 
@@ -652,15 +675,15 @@ int main(int argc, char **argv)
     // DEBUG
 
     dataset = siteco::SegmentationDataset("/home/daniele/Desktop/cityscapes.json");
-    siteco::LadybugRawStream stream("/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_0/");
-    siteco::LadybugRawStream seg_stream = stream.buildRelatedStream("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0_reduced", "segmentation", "png");
-    siteco::LadybugRawStream seg_stream_color = stream.buildRelatedStream("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_0_reduced", "colorsegmentation", "jpg");
-    siteco::LadybugFramePoses streamPoses("/home/daniele/data/datasets/siteco/DucatiEXP/Ladybug0_0_poses.txt");
+    siteco::LadybugRawStream stream("/home/daniele/data/datasets/siteco/DucatiEXP/Images_Ladybug0_1/");
+    siteco::LadybugRawStream seg_stream = stream.buildRelatedStream("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_1_reduced", "segmentation", "png");
+    siteco::LadybugRawStream seg_stream_color = stream.buildRelatedStream("/home/daniele/data/datasets/siteco/DucatiEXP/Segmentations/Images_Ladybug0_1_reduced", "colorsegmentation", "jpg");
+    siteco::LadybugFramePoses streamPoses("/home/daniele/data/datasets/siteco/DucatiEXP/Ladybug0_1_poses.txt");
     siteco::LadybugOfflineCamera camera(
         2048,
         2448,
-        "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rays.bin",
-        "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_0.rectmap.bin");
+        "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_1.rays.bin",
+        "/home/daniele/data/datasets/siteco/DucatiEXP/LadybugData/Ladybug0_1.rectmap.bin");
 
     printf("Stream files:               %d\n", int(stream.files.size()));
     printf("Segmentation Stream files:  %d\n", int(seg_stream.files.size()));
@@ -690,7 +713,7 @@ int main(int argc, char **argv)
 
     Voxel3D *voxel_image = new Voxel3D[rows * cols];
 
-    int stream_index = 0;
+    int stream_index = 300;
     using namespace siteco;
 
     // Spin
@@ -752,16 +775,16 @@ int main(int argc, char **argv)
         int chunk_size = rows / steps;
 
         std::set<int> excluded_labels;
-        excluded_labels.insert(10);
-        excluded_labels.insert(14);
-        excluded_labels.insert(11);
-        excluded_labels.insert(12);
-        excluded_labels.insert(13);
-        excluded_labels.insert(14);
-        excluded_labels.insert(15);
-        excluded_labels.insert(16);
-        excluded_labels.insert(17);
-        excluded_labels.insert(18);
+        // excluded_labels.insert(10);
+        // excluded_labels.insert(14);
+        // excluded_labels.insert(11);
+        // excluded_labels.insert(12);
+        // excluded_labels.insert(13);
+        // excluded_labels.insert(14);
+        // excluded_labels.insert(15);
+        // excluded_labels.insert(16);
+        // excluded_labels.insert(17);
+        // excluded_labels.insert(18);
 
         timings.printTime("data_prepare");
 
@@ -891,18 +914,23 @@ int main(int argc, char **argv)
 
         timings.printTime("visualization");
 
+        char c;
         if (stream_index == 0)
         {
-            cv::waitKey(0);
+            c = cv::waitKey(0);
         }
         else
         {
-            cv::waitKey(1);
+            c = cv::waitKey(1);
         }
+        if (c == 'q')
+            break;
 
         ros::spinOnce();
         r.sleep();
 
         stream_index++;
     }
+
+    saveMapToFile(map, map_resolution, "/tmp/map_test.skimap");
 }

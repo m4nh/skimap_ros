@@ -13,37 +13,21 @@
 // EIGEN
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <unsupported/Eigen/CXX11/Tensor>
 
 // ROS
-#include <message_filters/subscriber.h>
-#include <message_filters/sync_policies/approximate_time.h>
-#include <message_filters/time_synchronizer.h>
 #include <ros/ros.h>
-#include <tf/transform_listener.h>
 #include <visualization_msgs/MarkerArray.h>
-#include <tf/transform_broadcaster.h>
-#include <tf_conversions/tf_eigen.h>
-#include <eigen_conversions/eigen_msg.h>
+#include <interactive_markers/interactive_marker_server.h>
+#include <interactive_markers/menu_handler.h>
 
 // OPENCV
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 #include <opencv2/opencv.hpp>
 
-// Boost
-#include <boost/algorithm/string.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/foreach.hpp>
-
 // Skimap
-#include <skimap/voxels/VoxelDataRGBW.hpp>
-#include <skimap/voxels/VoxelDataMultiLabel.hpp>
 #include <skimap/voxels/VoxelDataMultiLabelWithCounter.hpp>
 #include <skimap/SkiMap.hpp>
-#include <skimap/operators/Raycasting.hpp>
 #include <skimap_ros/SkimapRosUtils.hpp>
 
 #include <siteco/Geometry.hpp>

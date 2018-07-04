@@ -91,11 +91,12 @@ int main(int argc, char **argv)
 
     // Map
     map = new SKIMAP(0.1, 0.0);
-    map->loadFromFile("/tmp/map_test.skimap");
+    map->loadFromFile("/home/daniele/Desktop/map_test_0.05.skimap");
 
     // Query
     std::vector<Voxel3D> voxels;
-    map->radiusSearch(0.0, 0.0, 0.0, 100.0, 100.0, 100.0, voxels);
+    //map->radiusSearch(0.0, 0.0, 0.0, 100.0, 100.0, 100.0, voxels);
+    map->fetchVoxels(voxels);
     ROS_INFO_STREAM("Search: " << voxels.size());
 
     // Visualization marker
@@ -123,9 +124,12 @@ int main(int argc, char **argv)
         marker.colors.push_back(color);
     }
 
+    ros::Rate rate(1);
     while (ros::ok())
     {
         marker.header.stamp = ros::Time::now();
         map_publisher.publish(marker);
+        ros::spinOnce();
+        rate.sleep();
     }
 }

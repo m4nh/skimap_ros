@@ -571,6 +571,10 @@ public:
     return this->_self_concurrency_management;
   }
 
+  inline D resolutionX() { return this->_resolution_x; };
+  inline D resolutionY() { return this->_resolution_y; };
+  inline D resolutionZ() { return this->_resolution_z; };
+
 protected:
   Index _max_index_value;
   Index _min_index_value;

@@ -242,6 +242,7 @@ class Raycasting2
         return false;
     }
 
+    //TODO: in this function we use Voxels with an HIDDEN COUNTER to track hits! Why? boh!
     template <class VoxelData>
     bool intersectVoxelWithWeight(Eigen::Vector3d center, Eigen::Vector3d dir, double min_weight, Voxel3D &voxel, double delta, double min_distance, double max_distance)
     {

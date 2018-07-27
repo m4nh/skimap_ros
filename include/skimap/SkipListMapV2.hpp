@@ -542,11 +542,16 @@ public:
       if (!header_found)
       {
         K min, max;
+        double dx, dy, dz;
+
         iss >> min;
         iss >> max;
-        iss >> _resolution_x;
-        iss >> _resolution_y;
-        iss >> _resolution_z;
+        iss >> dx;
+        iss >> dy;
+        iss >> dz;
+        _resolution_x = dx;
+        _resolution_y = dy;
+        _resolution_z = dz;
         initialize(min, max);
         header_found = true;
         continue;

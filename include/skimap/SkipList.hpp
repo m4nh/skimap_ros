@@ -130,7 +130,7 @@ class SkipList
      */
     NodeType *insert(K search_key, V new_value)
     {
-        SkipListNode<K, V, MAXLEVEL> *update[MAXLEVEL];
+        SkipListNode<K, V, MAXLEVEL> *update[MAXLEVEL+1];
         NodeType *curr_node = header_node_;
         for (int level = max_current_level_; level >= 1; level--)
         {

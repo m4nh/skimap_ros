@@ -3,6 +3,7 @@
 
 #include <climits>
 #include <cstddef>
+#include "omp.h"
 
 namespace skimap
 {
@@ -249,6 +250,29 @@ MemoryPool<T, BlockSize>::deleteElement(pointer p)
     }
 }
 
+
+template<class D>
+struct MultiPool{
+    MemoryPool<D>* pools;
+
+    static MultiPool<D>* instance;
+
+    static MultiPool<D>* getInstance(){
+        if(!instance){
+            MultiPool<D>::instance = new MultiPool<D>(omp_get_max_threads());
+        }
+        return instance;
+    };
+
+    MultiPool(size_t size){
+        pools = new MemoryPool<D>[size];
+    }
+
+};
+
 } // namespace skimap
+
+template<class D>
+skimap::MultiPool<D>* skimap::MultiPool<D>::instance;
 
 #endif // MEMORY_POOL_H

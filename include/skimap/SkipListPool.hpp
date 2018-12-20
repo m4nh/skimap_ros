@@ -6,8 +6,8 @@
  * please write to: d.degregorio@unibo.it
  */
 
-#ifndef SKIPLIST_HPP
-#define SKIPLIST_HPP
+#ifndef SKIPLISTPOOL_HPP
+#define SKIPLISTPOOL_HPP
 
 #include <stdlib.h>
 #include <iostream>
@@ -17,23 +17,26 @@
 #include <skimap/MemoryPool.hpp>
 
 
+#define NODE_POOL_SIZE 50000000
+#define DATA_POOL_SIZE 50000000
+
 namespace skimap
 {
 
     /**
-     * SkipListNode represents a single node in a SkipList.
-     * K template represents datatype for Keys.
-     * V template represents datatype for Values.
-     * MAXLEVEL template represent max depth of the SkipListNode.
-     */
+         * SkipListPoolNode represents a single node in a SkipList.
+         * K template represents datatype for Keys.
+         * V template represents datatype for Values.
+         * MAXLEVEL template represent max depth of the SkipListPoolNode.
+         */
     template <class K, class V, int MAXLEVEL>
-    class SkipListNode
+    class SkipListPoolNode
     {
         public:
             /**
-             * Void Constructor.
-             */
-            SkipListNode()
+                     * Void Constructor.
+                     */
+            SkipListPoolNode()
             {
                 for (int i = 1; i <= MAXLEVEL; i++)
                 {
@@ -42,10 +45,10 @@ namespace skimap
             }
 
             /**
-             * Constructs a node with target Key.
-             * @param searchKey target Key.
-             */
-            SkipListNode(K searchKey) : key(searchKey)
+                     * Constructs a node with target Key.
+                     * @param searchKey target Key.
+                     */
+            SkipListPoolNode(K searchKey) : key(searchKey)
             {
                 for (int i = 1; i <= MAXLEVEL; i++)
                 {
@@ -54,11 +57,11 @@ namespace skimap
             }
 
             /**
-             * Constructs a node with target Key,Value.
-             * @param searchKey target Key
-             * @param val target Value
-             */
-            SkipListNode(K searchKey, V* val) : key(searchKey), value(val)
+                     * Constructs a node with target Key,Value.
+                     * @param searchKey target Key
+                     * @param val target Value
+                     */
+            SkipListPoolNode(K searchKey, V* val) : key(searchKey), value(val)
             {
                 for (int i = 1; i <= MAXLEVEL; i++)
                 {
@@ -67,41 +70,40 @@ namespace skimap
             }
 
             /**
-             * Void Destructor.
-             */
-            virtual ~SkipListNode()
+                     * Void Destructor.
+                     */
+            virtual ~SkipListPoolNode()
             {
             }
 
             K key;
             V* value;
-            SkipListNode<K, V, MAXLEVEL>* forwards[MAXLEVEL + 1];
+            SkipListPoolNode<K, V, MAXLEVEL>* forwards[MAXLEVEL + 1];
     };
 
     /**
-     * SkipList class.
-     * K template represents datatype for Keys.
-     * V template represents datatype for Values.
-     * MAXLEVEL template represent max depth of the SkipList.
-     */
+         * SkipListPool class.
+         * K template represents datatype for Keys.
+         * V template represents datatype for Values.
+         * MAXLEVEL template represent max depth of the SkipList.
+         */
     template <class K, class V, int MAXLEVEL = 16>
-    class SkipList
+    class SkipListPool
     {
         public:
             typedef K KeyType;
             typedef V ValueType;
-            typedef SkipListNode<K, V, MAXLEVEL> NodeType;
-            typedef SkipList<K, V, MAXLEVEL> CurrentSkipList;
-
+            typedef SkipListPoolNode<K, V, MAXLEVEL> NodeType;
+            typedef SkipListPool<K, V, MAXLEVEL> CurrentSkipList;
 
 
 
             /**
-             * Constructor with MIN/MAX values for keys.
-             * @param min_key min Key value.
-             * @param max_key max Key value.
-             */
-            SkipList(K min_key, K max_key) : header_node_(NULL), tail_node_(NULL),
+                     * Constructor with MIN/MAX values for keys.
+                     * @param min_key min Key value.
+                     * @param max_key max Key value.
+                     */
+            SkipListPool(K min_key, K max_key) : header_node_(NULL), tail_node_(NULL),
                 max_current_level_(1), max_level(MAXLEVEL),
                 min_key_(min_key), max_value_(max_key), size_(0), last_(0)
             {
@@ -112,12 +114,15 @@ namespace skimap
                 {
                     header_node_->forwards[i] = tail_node_;
                 }
+
+                //Generate Pools
+
             }
 
             /**
-             * Destructor.
-             */
-            virtual ~SkipList()
+                     * Destructor.
+                     */
+            virtual ~SkipListPool()
             {
                 NodeType* curr_node = header_node_->forwards[1];
 
@@ -130,17 +135,19 @@ namespace skimap
 
                 delete header_node_;
                 delete tail_node_;
+
+
             }
 
             /**
-             * Inserts new KEY,VALUE in the SkipList.
-             * @param search_key searching Key for insertion.
-             * @param new_value insertion Value.
-             * @return new Node inserted, or previous one.
-             */
+                     * Inserts new KEY,VALUE in the SkipList.
+                     * @param search_key searching Key for insertion.
+                     * @param new_value insertion Value.
+                     * @return new Node inserted, or previous one.
+                     */
             NodeType* insert(K search_key, V* new_value)
             {
-                SkipListNode<K, V, MAXLEVEL>* update[MAXLEVEL];
+                SkipListPoolNode<K, V, MAXLEVEL>* update[MAXLEVEL];
                 NodeType* curr_node = header_node_;
 
                 for (int level = max_current_level_; level >= 1; level--)
@@ -199,12 +206,12 @@ namespace skimap
             }
 
             /**
-             * Removes node with target Key.
-             * @param search_key target Key
-             */
+                     * Removes node with target Key.
+                     * @param search_key target Key
+                     */
             void erase(K search_key)
             {
-                SkipListNode<K, V, MAXLEVEL>* update[MAXLEVEL];
+                SkipListPoolNode<K, V, MAXLEVEL>* update[MAXLEVEL];
                 NodeType* curr_node = header_node_;
 
                 for (int level = max_current_level_; level >= 1; level--)
@@ -243,10 +250,10 @@ namespace skimap
             }
 
             /**
-             * Search by Key.
-             * @param search_key target Key
-             * @return
-             */
+                     * Search by Key.
+                     * @param search_key target Key
+                     * @return
+                     */
             const NodeType* find(K search_key)
             {
                 NodeType* curr_node = header_node_;
@@ -272,12 +279,12 @@ namespace skimap
             }
 
             /**
-             * Search for node with nearest Key.
-             * @param search_key target Key
-             * @param previous TRUE if previous node (with respect to SkipList oreder)
-             * is required, FALSE otherwise.
-             * @return
-             */
+                     * Search for node with nearest Key.
+                     * @param search_key target Key
+                     * @param previous TRUE if previous node (with respect to SkipListPool oreder)
+                     * is required, FALSE otherwise.
+                     * @return
+                     */
             NodeType* findNearest(K search_key, bool previous = false)
             {
                 NodeType* curr_node = header_node_;
@@ -302,16 +309,16 @@ namespace skimap
             }
 
             /**
-             * @return TRUE if list is empty.
-             */
+                     * @return TRUE if list is empty.
+                     */
             bool empty() const
             {
                 return (header_node_->forwards[1] == tail_node_);
             }
 
             /**
-             * @return String representation of SkipList
-             */
+                     * @return String representation of SkipList
+                     */
             std::string toString()
             {
                 std::stringstream sstr;
@@ -327,9 +334,9 @@ namespace skimap
             }
 
             /**
-             * Iterates list and return an ordered Vector of Nodes
-             * @param nodes OUTPUT vector of Nodes
-             */
+                     * Iterates list and return an ordered Vector of Nodes
+                     * @param nodes OUTPUT vector of Nodes
+                     */
             void retrieveNodes(std::vector<NodeType*>& nodes)
             {
                 nodes.clear();
@@ -343,11 +350,11 @@ namespace skimap
             }
 
             /**
-             * Iterates list and return an ordered Vector of Nodes. Search is bounded.
-             * @param nodes OUTPUT vector of Nodes
-             * @param start start node
-             * @param end_key end target Key
-             */
+                     * Iterates list and return an ordered Vector of Nodes. Search is bounded.
+                     * @param nodes OUTPUT vector of Nodes
+                     * @param start start node
+                     * @param end_key end target Key
+                     */
             void retrieveNodes(std::vector<NodeType*>& nodes, NodeType* start, K end_key)
             {
                 nodes.clear();
@@ -367,11 +374,11 @@ namespace skimap
             }
 
             /**
-             * Iterates list between two Keys and return an ordered Vector of Nodes
-             * @param min_key min Key
-             * @param max_key max Key
-             * @param nodes OUTPUT vector of Nodes
-             */
+                     * Iterates list between two Keys and return an ordered Vector of Nodes
+                     * @param min_key min Key
+                     * @param max_key max Key
+                     * @param nodes OUTPUT vector of Nodes
+                     */
             void retrieveNodesByRange(K min_key, K max_key, std::vector<NodeType*>& nodes)
             {
                 NodeType* start = findNearest(min_key, true);
@@ -385,17 +392,17 @@ namespace skimap
             }
 
             /**
-             * @return  First Node of the list.
-             */
+                     * @return  First Node of the list.
+                     */
             const NodeType* first()
             {
                 return header_node_->forwards[1];
             }
 
             /**
-             * Returns last node. Requires a search O(nlog(n))
-             * @return Last Node of the list.
-             */
+                     * Returns last node. Requires a search O(nlog(n))
+                     * @return Last Node of the list.
+                     */
             const NodeType* last()
             {
                 NodeType* curr_node = header_node_;
@@ -412,57 +419,58 @@ namespace skimap
             }
 
             /**
-             * @return Last Node value with low reliability. Requires O(1).
-             */
+                     * @return Last Node value with low reliability. Requires O(1).
+                     */
             K getProbableLastKey()
             {
                 return last_;
             }
 
             /**
-             * @return List size.
-             */
+                     * @return List size.
+                     */
             int getSize()
             {
                 return size_;
             }
 
             /**
-             *  Factory allocator for itself-like Elements
-             */
-            template <class ...Args>
-            static CurrentSkipList* newElement(Args&& ...args)
+                     *  Factory allocator for itself-like Elements
+                     */
+            template <class... Args>
+            static CurrentSkipList* newElement(Args&& ... args)
             {
-                CurrentSkipList* e = new CurrentSkipList(std::forward<Args>(args)...);
-                return e;
+                return MultiPool<CurrentSkipList>::getInstance()->pools[omp_get_thread_num()].newElement(std::forward<Args>(args)...);
             }
 
             /**
-             *  Factory allocator for Nodes
-             */
+                     *  Factory allocator for Nodes
+                     */
 
-            template <class ...Args>
-            static V* newNode(Args&& ...args)
+            template <class... Args>
+            static V* newNode(Args&& ... args)
             {
-                V* n = new V(std::forward<Args>(args)...);
-                return n;
+
+                return MultiPool<V>::getInstance()->pools[omp_get_thread_num()].newElement(std::forward<Args>(args)...);
             }
 
             const int max_level;
 
+
+
         protected:
             /**
-             *
-             * @return uniform random value
-             */
+                     *
+                     * @return uniform random value
+                     */
             double uniformRandom()
             {
                 return rand() / double(RAND_MAX);
             }
 
             /**
-             * @return random SkipList level
-             */
+                     * @return random SkipListPool level
+                     */
             int randomLevel()
             {
                 int level = 1;
@@ -486,9 +494,31 @@ namespace skimap
             K last_;
             int max_current_level_;
             int size_;
-            SkipListNode<K, V, MAXLEVEL>* header_node_;
-            SkipListNode<K, V, MAXLEVEL>* tail_node_;
-    };
-}
+            SkipListPoolNode<K, V, MAXLEVEL>* header_node_;
+            SkipListPoolNode<K, V, MAXLEVEL>* tail_node_;
 
-#endif /* SKIPLIST_HPP */
+
+
+
+            //typedef class skimap::SkipListPool<K,V,MAXLEVEL> B;
+
+            //template<class SkipListPool<K,V,MAXLEVEL>>
+            //skimap::MultiPool<SkipListPool<K,V,MAXLEVEL>>* skimap::MultiPool<SkipListPool<K,V,MAXLEVEL>>::instance;
+
+    };
+
+
+    //    typedef skimap::MemoryPool<CurrentSkipList, NODE_POOL_SIZE> NodePool;
+    //    typedef skimap::MemoryPool<V,  DATA_POOL_SIZE> DataPool;
+
+    //template<class K, class V, int MAXLEVEL = 16>
+    //MultiPool<SkipListPoolNode<K, V, MAXLEVEL>> SkipListPoolNode<K, V, MAXLEVEL>::node_multipool_;
+    //    template<class K, class V, int MAXLEVEL = 16>
+    //    typename skimap::MemoryPool<V, NODE_POOL_SIZE>* SkipListPoolNode<K, V, MAXLEVEL>::data_pools_;
+
+
+} // namespace skimap
+
+
+
+#endif /* SKIPLISTPOOL_HPP */

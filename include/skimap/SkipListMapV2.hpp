@@ -17,6 +17,7 @@
 #include <map>
 #include <omp.h>
 #include <skimap/SkipList.hpp>
+#include <skimap/SkipListPool.hpp>
 #include <skimap/SkipListDense.hpp>
 #include <skimap/voxels/GenericVoxel3D.hpp>
 #include <vector>
@@ -24,6 +25,7 @@
 #define SkipListMapV2_MAX_DEPTH 16
 
 #define THREAD_SAFE
+#define USE_POOLS
 
 namespace skimap
 {
@@ -40,9 +42,15 @@ namespace skimap
             typedef GenericVoxel3D<V, D> Voxel3D;
             typedef V VoxelData;
             typedef K Index;
-            typedef SkipList<Index, V*, Z_DEPTH> Z_NODE;
-            typedef SkipList<Index, Z_NODE*, Y_DEPTH> Y_NODE;
-            typedef SkipListDense<Index, Y_NODE*, X_DEPTH> X_NODE;
+
+#ifdef USE_POOLS
+            typedef SkipListPool<Index, V, Z_DEPTH> Z_NODE;
+            typedef SkipListPool<Index, Z_NODE, Y_DEPTH> Y_NODE;
+#else
+            typedef SkipList<Index, V, Z_DEPTH> Z_NODE;
+            typedef SkipList<Index, Z_NODE, Y_DEPTH> Y_NODE;
+#endif
+            typedef SkipListDense<Index, Y_NODE, X_DEPTH> X_NODE;
 
             /**
                  *
@@ -91,9 +99,7 @@ namespace skimap
                  */
             virtual ~SkipListMapV2()
             {
-                for (typename std::map<K, boost::mutex*>::iterator it =
-                         this->mutex_map.begin();
-                     it != this->mutex_map.end(); ++it)
+                for (typename std::map<K, boost::mutex*>::iterator it = this->mutex_map.begin(); it != this->mutex_map.end(); ++it)
                 {
                     delete it->second;
                 }
@@ -110,6 +116,7 @@ namespace skimap
 
                 _root_list = new X_NODE(min_index, max_index);
                 _bytes_counter += sizeof(X_NODE);
+
             }
 
             /**
@@ -334,25 +341,23 @@ namespace skimap
 
                     if (ylist == NULL)
                     {
-                        ylist = _root_list->insert(
-                                    ix, new Y_NODE(_min_index_value, _max_index_value));
-                        //_bytes_counter += sizeof(typename X_NODE::NodeType) + sizeof(Y_NODE);
+
+                        ylist = _root_list->insert(ix, Y_NODE::newElement(_min_index_value, _max_index_value));
                     }
 
                     const typename Y_NODE::NodeType* zlist = ylist->value->find(iy);
 
                     if (zlist == NULL)
                     {
-                        zlist = ylist->value->insert(
-                                    iy, new Z_NODE(_min_index_value, _max_index_value));
-                        //_bytes_counter += sizeof(typename Y_NODE::NodeType) + sizeof(Z_NODE);
+                        zlist = ylist->value->insert(iy, Z_NODE::newElement(_min_index_value, _max_index_value));
                     }
 
                     const typename Z_NODE::NodeType* voxel = zlist->value->find(iz);
 
                     if (voxel == NULL)
                     {
-                        voxel = zlist->value->insert(iz, new V(data));
+
+                        voxel = zlist->value->insert(iz,  Z_NODE::newNode(data));
                         // _bytes_counter += sizeof(typename Y_NODE::NodeType) + sizeof(V);
                     }
                     else

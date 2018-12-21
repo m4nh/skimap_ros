@@ -25,7 +25,7 @@
 #define SkipListMapV2_MAX_DEPTH 16
 
 #define THREAD_SAFE
-#define USE_POOLS
+//#define USE_POOLS
 
 namespace skimap
 {

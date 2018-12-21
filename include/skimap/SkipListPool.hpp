@@ -17,8 +17,7 @@
 #include <skimap/MemoryPool.hpp>
 
 
-#define NODE_POOL_SIZE 50000000
-#define DATA_POOL_SIZE 50000000
+
 
 namespace skimap
 {
@@ -107,8 +106,9 @@ namespace skimap
                 max_current_level_(1), max_level(MAXLEVEL),
                 min_key_(min_key), max_value_(max_key), size_(0), last_(0)
             {
-                header_node_ = new NodeType(min_key_);
-                tail_node_ = new NodeType(max_value_);
+
+                header_node_ = CurrentSkipList::newNodeType(min_key_);
+                tail_node_ = CurrentSkipList::newNodeType(max_value_);
 
                 for (int i = 1; i <= MAXLEVEL; i++)
                 {
@@ -180,7 +180,7 @@ namespace skimap
                         max_current_level_ = new_level;
                     }
 
-                    curr_node = new NodeType(search_key, new_value);
+                    curr_node = CurrentSkipList::newNodeType(search_key, new_value);
                     size_++;
 
                     for (int lv = 1; lv <= new_level; lv++)
@@ -452,6 +452,13 @@ namespace skimap
             {
 
                 return MultiPool<V>::getInstance()->pools[omp_get_thread_num()].newElement(std::forward<Args>(args)...);
+            }
+
+            template <class... Args>
+            static NodeType* newNodeType(Args&& ... args)
+            {
+
+                return MultiPool<NodeType>::getInstance()->pools[omp_get_thread_num()].newElement(std::forward<Args>(args)...);
             }
 
             const int max_level;

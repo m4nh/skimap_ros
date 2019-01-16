@@ -465,8 +465,7 @@ namespace skimap
                                 iz = znodes[k]->key;
                                 indexToCoordinates(ix, iy, iz, x, y, z);
 
-                                Voxel3D v(x, y, z, znodes[k]->value);
-                                //voxels_map[omp_get_thread_num()].push_back(Voxel3D(x, y, z, znodes[k]->value));
+                                voxels_map[omp_get_thread_num()].push_back(Voxel3D(x, y, z, znodes[k]->value));
                             }
                         }
                     }

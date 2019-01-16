@@ -12,6 +12,7 @@
 
 #include <boost/thread.hpp>
 #include <fstream>
+#include <algorithm>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -393,7 +394,7 @@ namespace skimap
                 {
                     std::vector<Voxel3D> voxels_private;
 
-                    #pragma omp for nowait
+                    #pragma omp for nowait schedule(static)
 
                     for (int i = 0; i < xnodes.size(); i++)
                     {
@@ -422,6 +423,55 @@ namespace skimap
                     #pragma omp critical
                     voxels.insert(voxels.end(), voxels_private.begin(), voxels_private.end());
                 }
+            }
+
+            /**
+             * @brief fetchVoxelsSparse
+             * @param voxels_map
+             */
+            virtual void fetchVoxelsSparse(std::vector<std::vector<Voxel3D>>& voxels_map)
+            {
+                std::vector<typename X_NODE::NodeType*> xnodes;
+                _root_list->retrieveNodes(xnodes);
+
+                #pragma omp parallel
+                {
+
+                    #pragma omp single
+                    {
+                        voxels_map = std::vector<std::vector<Voxel3D>>(omp_get_num_threads());
+                    }
+
+                    //std::vector<Voxel3D> voxels_private;
+
+                    #pragma omp for nowait schedule(static)
+
+                    for (int i = 0; i < xnodes.size(); i++)
+                    {
+                        K ix, iy, iz;
+                        D x, y, z;
+                        std::vector<typename Y_NODE::NodeType*> ynodes;
+                        xnodes[i]->value->retrieveNodes(ynodes);
+
+                        for (int j = 0; j < ynodes.size(); j++)
+                        {
+                            std::vector<typename Z_NODE::NodeType*> znodes;
+                            ynodes[j]->value->retrieveNodes(znodes);
+
+                            for (int k = 0; k < znodes.size(); k++)
+                            {
+                                ix = xnodes[i]->key;
+                                iy = ynodes[j]->key;
+                                iz = znodes[k]->key;
+                                indexToCoordinates(ix, iy, iz, x, y, z);
+
+                                Voxel3D v(x, y, z, znodes[k]->value);
+                                //voxels_map[omp_get_thread_num()].push_back(Voxel3D(x, y, z, znodes[k]->value));
+                            }
+                        }
+                    }
+                }
+
             }
 
             /**

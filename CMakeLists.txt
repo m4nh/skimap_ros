@@ -140,9 +140,9 @@ endif(BUILD_TUTORIALS)
 # ADD_LIBRARY(ann STATIC IMPORTED)
 # SET_TARGET_PROPERTIES(ann PROPERTIES IMPORTED_LOCATION /home/daniele/work/workspace_cpp/ann_1.1.2/lib/libANN.a)
 
-add_executable(kd_test src/nodes/experiments/kd_test.cpp)
+#add_executable(kd_test src/nodes/experiments/kd_test.cpp)
 # target_link_libraries(kd_test ann)
-target_link_libraries(kd_test ${OpenCV_LIBRARIES} boost_system)
+#target_link_libraries(kd_test ${OpenCV_LIBRARIES} boost_system)
 
 # add_dependencies(kd_test skimap_ros_generate_messages_cpp)
 

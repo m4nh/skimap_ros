@@ -120,6 +120,7 @@ SKIMAP *map;
 ros::NodeHandle *nh;
 tf::TransformListener *tf_listener;
 ros::Publisher map_publisher;
+ros::Publisher map_radius_publisher;
 
 // Live parameters
 std::string base_frame_name = "world";
@@ -178,7 +179,7 @@ struct IntegrationPoint
  */
 visualization_msgs::Marker
 createVisualizationMarker(std::string frame_id, ros::Time time, int id,
-                          std::vector<Voxel3D> &voxels, int min_weight_th = 1)
+                          std::vector<Voxel3D> &voxels, int min_weight_th = 1, bool grayscale = false, float reduce_factor = 1.0)
 {
 
   /**
@@ -191,9 +192,9 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
   marker.id = id;
 
   marker.type = visualization_msgs::Marker::CUBE_LIST;
-  marker.scale.x = map_service_parameters.map_resolution;
-  marker.scale.y = map_service_parameters.map_resolution;
-  marker.scale.z = map_service_parameters.map_resolution;
+  marker.scale.x = map_service_parameters.map_resolution * reduce_factor;
+  marker.scale.y = map_service_parameters.map_resolution * reduce_factor;
+  marker.scale.z = map_service_parameters.map_resolution * reduce_factor;
 
   cv::Mat colorSpace(1, voxels.size(), CV_32FC3);
 
@@ -218,9 +219,21 @@ createVisualizationMarker(std::string frame_id, ros::Time time, int id,
 
     LabelType l = voxels[i].data->heavierLabel();
     cv::Scalar lc(0, 0, 0);
-    if (l < labels_color_map.size())
+
+    if (grayscale)
     {
-      lc = labels_color_map[l];
+      lc = cv::Scalar(250, 250, 250);
+    }
+    else
+    {
+      if (l < labels_color_map.size())
+      {
+        lc = labels_color_map[l];
+      }
+      else
+      {
+        lc = labels_color_map[l % int(labels_color_map.size())];
+      }
     }
 
     // if (l != 10)
@@ -257,6 +270,9 @@ void integrateVoxels(std::vector<IntegrationPoint> &integration_points)
     IntegrationPoint &ip = integration_points[i];
     if (!ip.valid)
       continue;
+
+    //float z = map->tileHeight(float(ip.x), float(ip.y));
+
     map->integrateVoxel(float(ip.x), float(ip.y), float(ip.z),
                         &(ip.voxel_data));
   }
@@ -346,7 +362,7 @@ int main(int argc, char **argv)
 {
 
   // Initialize ROS
-  ros::init(argc, argv, "skimap_semantic_map_service_playground");
+  ros::init(argc, argv, "skimap_semantic_map_service");
   nh = new ros::NodeHandle("~");
   tf_listener = new tf::TransformListener();
 
@@ -355,8 +371,9 @@ int main(int argc, char **argv)
   nh->param<std::string>("camera_frame_name", camera_frame_name, "camera_rf");
 
   // Map Publisher
-  std::string map_topic = nh->param<std::string>("map_topic", "live_map");
+  std::string map_topic = nh->param<std::string>("map_topic", "live_map_playground");
   map_publisher = nh->advertise<visualization_msgs::Marker>(map_topic, 1);
+  map_radius_publisher = nh->advertise<visualization_msgs::Marker>(map_topic + "_radius", 1);
 
   // Services
   ros::ServiceServer service_integration =
@@ -393,6 +410,33 @@ int main(int argc, char **argv)
     if (auto_publish_markers)
     {
 
+      tf::StampedTransform transform;
+      try
+      {
+        tf_listener->lookupTransform("/world", "/camera_i", ros::Time(0), transform);
+        std::cout << transform.getOrigin().x() << "\n";
+
+        std::vector<Voxel3D> radius_voxels;
+        {
+          boost::mutex::scoped_lock lock(map_synch_manager.map_mutex);
+          map->radiusSearch(
+              float(transform.getOrigin().x()),
+              float(transform.getOrigin().y()),
+              float(transform.getOrigin().z()),
+              10., 10, 10,
+              radius_voxels);
+        }
+        visualization_msgs::Marker map_radius_marker = createVisualizationMarker(
+            base_frame_name, ros::Time::now(),
+            1, radius_voxels, map_service_parameters.min_voxel_weight, false, 1.1);
+        map_radius_publisher.publish(map_radius_marker);
+      }
+      catch (tf::TransformException ex)
+      {
+        ROS_ERROR("%s", ex.what());
+        ros::Duration(1.0).sleep();
+      }
+
       std::vector<Voxel3D> voxels;
       {
         boost::mutex::scoped_lock lock(map_synch_manager.map_mutex);
@@ -400,7 +444,8 @@ int main(int argc, char **argv)
       }
       visualization_msgs::Marker map_marker = createVisualizationMarker(
           base_frame_name, ros::Time::now(),
-          1, voxels, map_service_parameters.min_voxel_weight);
+          1, voxels, map_service_parameters.min_voxel_weight, true);
+
       map_publisher.publish(map_marker);
     }
 

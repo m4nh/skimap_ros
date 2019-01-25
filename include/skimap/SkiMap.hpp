@@ -212,6 +212,43 @@ class SkiMap : public SkipListMapV2<V, K, D, X_DEPTH, Y_DEPTH, Z_DEPTH>
         _zero_level_key = K(floor(_zero_level / this->_resolution_z));
     }
 
+    virtual D tileHeight(D x, D y)
+    {
+        K ix, iy, iz;
+
+        if (this->coordinatesToIndex(x, y, 0, ix, iy, iz))
+        {
+
+            K zz = this->tileHeight(ix, iy);
+            D x, y, z;
+            this->indexToCoordinates(ix, iy, zz, x, y, z);
+            return z;
+        }
+    }
+
+    virtual K tileHeight(K ix, K iy)
+    {
+        const typename X_NODE::NodeType *ylist = this->_root_list->find(ix);
+
+        if (ylist != NULL && ylist->value != NULL)
+        {
+            const typename Y_NODE::NodeType *zlist = ylist->value->find(iy);
+
+            if (zlist != NULL && zlist->value != NULL)
+            {
+
+                const typename Z_NODE::NodeType *voxel = zlist->value->last();
+
+                if (voxel != NULL)
+                {
+                    return voxel->key;
+                }
+            }
+        }
+
+        return K(0);
+    }
+
   protected:
     D _zero_level;
     K _zero_level_key;

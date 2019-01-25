@@ -256,7 +256,7 @@ namespace skimap
         }
     }
 
-#define DATA_SIZE 50000000
+#define DATA_SIZE 150000000
 
     template<class D>
     struct MultiPool

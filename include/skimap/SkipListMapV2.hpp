@@ -26,7 +26,7 @@
 #define SkipListMapV2_MAX_DEPTH 16
 
 #define THREAD_SAFE
-//#define USE_POOLS
+#define USE_POOLS
 
 namespace skimap
 {
@@ -465,7 +465,8 @@ namespace skimap
                                 iz = znodes[k]->key;
                                 indexToCoordinates(ix, iy, iz, x, y, z);
 
-                                voxels_map[omp_get_thread_num()].push_back(Voxel3D(x, y, z, znodes[k]->value));
+                                Voxel3D v(x, y, z, znodes[k]->value);
+                                //voxels_map[omp_get_thread_num()].push_back(Voxel3D(x, y, z, znodes[k]->value));
                             }
                         }
                     }

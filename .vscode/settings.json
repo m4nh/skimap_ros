@@ -45,7 +45,11 @@
         "core": "cpp",
         "numericaldiff": "cpp",
         "*.txx": "cpp",
-        "tensor": "cpp"
+        "tensor": "cpp",
+        "strstream": "cpp",
+        "future": "cpp",
+        "cinttypes": "cpp",
+        "typeindex": "cpp"
     },
     "C_Cpp.intelliSenseEngineFallback": "Disabled"
 }
